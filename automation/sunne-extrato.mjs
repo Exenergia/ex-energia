@@ -4,6 +4,7 @@ import path from 'path';
 
 const EMAIL = process.env.SUNNE_EMAIL;
 const SENHA = process.env.SUNNE_PASSWORD;
+const COMPETENCIA = process.env.COMPETENCIA || 'março 2025';
 
 if (!EMAIL || !SENHA) {
   console.error('SUNNE_EMAIL e SUNNE_PASSWORD são obrigatórios.');
@@ -37,37 +38,38 @@ async function run() {
     page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
     page.click('button[type="submit"]'),
   ]);
-  console.log('Login OK. URL:', page.url());
+  console.log('Login OK.');
 
   console.log('Navegando para relatórios...');
   await page.goto('https://ponttoexponencial.sunne.com.br/investidor/relatorios', { waitUntil: 'networkidle2' });
   await new Promise(r => setTimeout(r, 2000));
 
-  console.log('Expandindo seção Faturamento - Extrato Detalhado...');
-  const expandido = await page.evaluate(() => {
-    const divs = document.querySelectorAll('div, button, p, span, h2, h3');
-    for (const el of divs) {
+  console.log('Expandindo seção...');
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('div, button, p, span, h2, h3')) {
       if (el.textContent.trim() === 'Faturamento - Extrato Detalhado') {
-        el.click();
-        return true;
+        el.click(); return;
       }
     }
-    return false;
   });
-  console.log('Seção expandida:', expandido);
   await new Promise(r => setTimeout(r, 2000));
 
-  await page.screenshot({ path: './downloads/relatorios-expandido.png', fullPage: true });
-  console.log('Screenshot após expandir salvo.');
-
-  const html = await page.evaluate(() => {
-    const section = Array.from(document.querySelectorAll('*')).find(el => 
-      el.textContent.includes('Faturamento - Extrato Detalhado') && 
-      el.textContent.includes('Competência')
-    );
-    return section ? section.innerHTML.substring(0, 3000) : 'Seção não encontrada';
+  // clicar no dropdown "Competência - Início"
+  console.log('Clicando em Competência - Início...');
+  await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*'));
+    const el = els.find(e => e.textContent.includes('Competência - Início') && e.children.length < 5);
+    if (el) el.click();
   });
-  console.log('HTML da seção:', html);
+  await new Promise(r => setTimeout(r, 1500));
+  await page.screenshot({ path: './downloads/dropdown-inicio.png', fullPage: true });
+
+  // inspecionar opções do dropdown aberto
+  const opcoes = await page.evaluate(() => {
+    const items = Array.from(document.querySelectorAll('mat-option, .mat-option, li, [role="option"]'));
+    return items.map(el => el.textContent.trim()).filter(Boolean).slice(0, 30);
+  });
+  console.log('Opções encontradas:', opcoes);
 
   await browser.close();
 }
