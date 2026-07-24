@@ -4,7 +4,6 @@ import path from 'path';
 
 const EMAIL = process.env.SUNNE_EMAIL;
 const SENHA = process.env.SUNNE_PASSWORD;
-const COMPETENCIA = process.env.COMPETENCIA || 'março 2025';
 
 if (!EMAIL || !SENHA) {
   console.error('SUNNE_EMAIL e SUNNE_PASSWORD são obrigatórios.');
@@ -46,23 +45,23 @@ async function run() {
   });
   await new Promise(r => setTimeout(r, 2000));
 
-  const info = await page.evaluate(() => {
+  // listar todos os textos de elementos folha para achar o dropdown
+  const textos = await page.evaluate(() => {
     const results = [];
     document.querySelectorAll('*').forEach(el => {
-      if (el.childElementCount === 0 && el.textContent.includes('Competencia - Inicio')) {
-        const r = el.getBoundingClientRect();
-        results.push({
-          tag: el.tagName,
-          text: el.textContent.trim().substring(0, 80),
-          x: Math.round(r.x + r.width / 2),
-          y: Math.round(r.y + r.height / 2),
-          class: el.className.toString().substring(0, 60),
-        });
+      if (el.childElementCount === 0) {
+        const t = el.textContent.trim();
+        if (t.length > 3 && t.length < 60) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 50 && r.height > 10) {
+            results.push({ tag: el.tagName, text: t, x: Math.round(r.x), y: Math.round(r.y) });
+          }
+        }
       }
     });
-    return results;
+    return results.slice(0, 60);
   });
-  console.log('Elementos:', JSON.stringify(info, null, 2));
+  console.log('Textos visíveis:', JSON.stringify(textos, null, 2));
 
   await browser.close();
 }
