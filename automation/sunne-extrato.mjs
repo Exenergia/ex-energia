@@ -85,9 +85,9 @@ async function run() {
   console.log('Arquivo baixado:', xlsx);
 
   // ler xlsx
-  const wb = XLSX.readFile(path.join(downloadPath, xlsx));
+  const wb = readFile(path.join(downloadPath, xlsx));
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  const rows = utils.sheet_to_json(ws, { defval: '' });
   console.log('Total linhas:', rows.length);
 
   // buscar clientes existentes no banco
