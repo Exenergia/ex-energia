@@ -41,25 +41,33 @@ async function run() {
 
   console.log('Navegando para relatórios...');
   await page.goto('https://ponttoexponencial.sunne.com.br/investidor/relatorios', { waitUntil: 'networkidle2' });
-  await new Promise(r => setTimeout(r, 3000));
+  await new Promise(r => setTimeout(r, 2000));
 
-  await page.screenshot({ path: './downloads/relatorios.png', fullPage: true });
-  console.log('Screenshot salvo.');
-
-  const selects = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll('select')).map((s, i) => ({
-      index: i,
-      name: s.name,
-      id: s.id,
-      options: Array.from(s.options).slice(0, 10).map(o => o.text),
-    }));
+  console.log('Expandindo seção Faturamento - Extrato Detalhado...');
+  const expandido = await page.evaluate(() => {
+    const divs = document.querySelectorAll('div, button, p, span, h2, h3');
+    for (const el of divs) {
+      if (el.textContent.trim() === 'Faturamento - Extrato Detalhado') {
+        el.click();
+        return true;
+      }
+    }
+    return false;
   });
-  console.log('Selects:', JSON.stringify(selects, null, 2));
+  console.log('Seção expandida:', expandido);
+  await new Promise(r => setTimeout(r, 2000));
 
-  const botoes = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll('button')).map(b => b.textContent.trim()).filter(Boolean);
+  await page.screenshot({ path: './downloads/relatorios-expandido.png', fullPage: true });
+  console.log('Screenshot após expandir salvo.');
+
+  const html = await page.evaluate(() => {
+    const section = Array.from(document.querySelectorAll('*')).find(el => 
+      el.textContent.includes('Faturamento - Extrato Detalhado') && 
+      el.textContent.includes('Competência')
+    );
+    return section ? section.innerHTML.substring(0, 3000) : 'Seção não encontrada';
   });
-  console.log('Botões:', botoes);
+  console.log('HTML da seção:', html);
 
   await browser.close();
 }
