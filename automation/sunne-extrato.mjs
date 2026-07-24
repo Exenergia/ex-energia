@@ -39,7 +39,6 @@ async function run() {
   await page.goto('https://ponttoexponencial.sunne.com.br/investidor/relatorios', { waitUntil: 'networkidle2' });
   await new Promise(r => setTimeout(r, 2000));
 
-  // expandir seção
   await page.evaluate(() => {
     for (const el of document.querySelectorAll('div, button, p, span, h2, h3')) {
       if (el.textContent.trim() === 'Faturamento - Extrato Detalhado') { el.click(); return; }
@@ -47,5 +46,25 @@ async function run() {
   });
   await new Promise(r => setTimeout(r, 2000));
 
-  // inspecionar todos os elementos que contenham "Competência - Início"
-  const
+  const info = await page.evaluate(() => {
+    const results = [];
+    document.querySelectorAll('*').forEach(el => {
+      if (el.childElementCount === 0 && el.textContent.includes('Competencia - Inicio')) {
+        const r = el.getBoundingClientRect();
+        results.push({
+          tag: el.tagName,
+          text: el.textContent.trim().substring(0, 80),
+          x: Math.round(r.x + r.width / 2),
+          y: Math.round(r.y + r.height / 2),
+          class: el.className.toString().substring(0, 60),
+        });
+      }
+    });
+    return results;
+  });
+  console.log('Elementos:', JSON.stringify(info, null, 2));
+
+  await browser.close();
+}
+
+run().catch(err => { console.error('ERRO:', err.message); process.exit(1); });
