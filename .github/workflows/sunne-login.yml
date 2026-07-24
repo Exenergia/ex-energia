@@ -1,0 +1,27 @@
+name: Teste Login Sunne
+
+on:
+  workflow_dispatch:
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar Chromium
+        run: npx puppeteer browsers install chrome
+
+      - name: Testar login Sunne
+        env:
+          SUNNE_EMAIL: ${{ secrets.SUNNE_EMAIL }}
+          SUNNE_PASSWORD: ${{ secrets.SUNNE_PASSWORD }}
+        run: node automation/sunne-login.mjs
