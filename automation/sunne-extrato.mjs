@@ -133,14 +133,24 @@ async function run() {
       cliente_id: clienteId,
       competencia: comp,
       status: (row['Status de Pagamento'] || '').toString().trim() || null,
-      fatura_ex_energia: n(row['Total a Pagar Boleto Sunne']),
-      fatura_concessionaria: n(row['Total a Pagar Boleto Concessionária']),
+      valor_pontto: n(row['Total a Pagar Boleto Sunne']),
+      valor_concessionaria: n(row['Total a Pagar Boleto Concessionária']),
       consumo_kwh: n(row['Consumo Total no Mês (kWh)']),
       desconto: n(row['Percentual de Economia']),
       vencimento_sunne: (row['Vencimento Sunne'] || '').toString().trim() || null,
+      vencimento_concessionaria: (row['Vencimento Concessionária'] || '').toString().trim() || null,
       economia_no_mes: n(row['Economia no Mês']),
+      economia_total: n(row['Economia Total Até Este Mês']),
+      saldo_credito_solar: n(row['Saldo de Crédito Solar']),
+      creditos_utilizados: n(row['Créditos Utilizados']),
+      creditos_recebidos: n(row['Créditos Recebidos']),
       total_pago: n(row['Total Pago']),
+      link_fatura_sunne: (row['Link Fatura Atualizada Sunne'] || '').toString().trim() || null,
+      link_fatura_concessionaria: (row['Link Fatura Concessionária'] || '').toString().trim() || null,
+      leitura_anterior: (row['Leitura Anterior'] || '').toString().trim() || null,
+      leitura_atual: (row['Leitura Atual'] || '').toString().trim() || null,
       dados_completos: row,
+    });
     });
     if (error) { erros++; console.error('Erro fatura:', error.message); }
     else gravadas++;
