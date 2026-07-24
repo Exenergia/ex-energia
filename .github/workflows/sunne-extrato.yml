@@ -1,0 +1,35 @@
+name: Sunne - Extrato Detalhado
+
+on:
+  workflow_dispatch:
+    inputs:
+      competencia:
+        description: 'Competência (ex: março 2025)'
+        required: true
+        default: 'março 2025'
+
+jobs:
+  extrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar dependências
+        run: npm install
+      - name: Instalar Chromium
+        run: npx puppeteer browsers install chrome
+      - name: Inspecionar tela de relatórios
+        env:
+          SUNNE_EMAIL: ${{ secrets.SUNNE_EMAIL }}
+          SUNNE_PASSWORD: ${{ secrets.SUNNE_PASSWORD }}
+          COMPETENCIA: ${{ inputs.competencia }}
+        run: node automation/sunne-extrato.mjs
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorios-screenshot
+          path: downloads/
