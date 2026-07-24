@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { supabase } from '../data/supabase.js';
 import { useStore } from '../data/store.jsx';
+import { useModoEdicao } from '../components/AuthGuard.jsx';
 
 export default function AssociacaoView() {
   const { id } = useParams();
@@ -21,6 +22,8 @@ export default function AssociacaoView() {
   const [editandoColuna, setEditandoColuna] = useState(null);
   const [nomeColuna, setNomeColuna] = useState('');
   const fileRef = useRef();
+
+  const modoEdicao = useModoEdicao();
 
   const chaveConfig = `colunas_assoc_${id}`;
   const chaveDados = `dados_assoc_${id}`;
@@ -163,11 +166,15 @@ export default function AssociacaoView() {
             </p>
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => fileRef.current.click()} disabled={importando}
-              style={{ padding:'9px 16px', border:'1px solid #e5e3dc', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer' }}>
-              ⬆ Importar extrato
-            </button>
-            <input ref={fileRef} type="file" accept=".xlsx" style={{ display:'none' }} onChange={lerXlsx} />
+            {modoEdicao && (
+              <>
+                <button onClick={() => fileRef.current.click()} disabled={importando}
+                  style={{ padding:'9px 16px', border:'1px solid #e5e3dc', borderRadius:8, fontSize:13, fontWeight:500, background:'#fff', cursor:'pointer' }}>
+                  ⬆ Importar extrato
+                </button>
+                <input ref={fileRef} type="file" accept=".xlsx" style={{ display:'none' }} onChange={lerXlsx} />
+              </>
+            )}
           </div>
         </div>
 
@@ -210,10 +217,12 @@ export default function AssociacaoView() {
                           </div>
                         : <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                             <span style={{ flex:1 }}>{col}</span>
+                            {modoEdicao && <>
                             <button onClick={() => { setEditandoColuna(idx); setNomeColuna(col); }}
                               style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:11 }}>✏️</button>
                             <button onClick={() => excluirColuna(idx)}
                               style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:11 }}>🗑</button>
+                            </>}
                           </div>
                       }
                     </th>
@@ -230,7 +239,7 @@ export default function AssociacaoView() {
                           const isEditing = editCell?.uc === uc && editCell?.col === col;
                           return (
                             <td key={idx}
-                              onClick={() => !isEditing && (setEditCell({uc, col}), setEditVal(val))}
+                              onClick={() => modoEdicao && !isEditing && (setEditCell({uc, col}), setEditVal(val))}
                               style={{ padding:'8px 12px', border:'1px solid #f0eeea', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', cursor:'pointer', background: isEditing ? '#fefce8' : 'transparent' }}>
                               {isEditing
                                 ? <input value={editVal} onChange={e => setEditVal(e.target.value)}

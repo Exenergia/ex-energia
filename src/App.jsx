@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { StoreProvider, useStore } from './data/store.jsx';
 import Sidebar from './components/Sidebar.jsx';
+import { BotaoEdicao } from './components/AuthGuard.jsx';
 import Painel from './pages/Painel.jsx';
 import Associacoes from './pages/Associacoes.jsx';
 import UnidadesGeradoras from './pages/UnidadesGeradoras.jsx';
@@ -24,6 +25,9 @@ function Shell() {
     <div className="app-shell">
       <Sidebar />
       <main className="content">
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+          <BotaoEdicao />
+        </div>
         <Routes>
           <Route path="/" element={<Painel />} />
           <Route path="/associacoes" element={<Associacoes />} />
