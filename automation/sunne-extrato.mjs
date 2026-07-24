@@ -1,7 +1,8 @@
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
-import { readFile, utils } from 'xlsx';
+import pkg from 'xlsx';
+const { readFile, utils } = pkg;
 import { createClient } from '@supabase/supabase-js';
 
 const EMAIL = process.env.SUNNE_EMAIL;
