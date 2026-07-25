@@ -8,12 +8,14 @@ import { useModoEdicao } from '../components/AuthGuard.jsx';
 export default function AssociacaoView() {
   const { id } = useParams();
   const { state, addCliente } = useStore();
+  const modoEdicao = useModoEdicao();
 
   const assoc = state.associacoes.find(a => a.id === id);
   const unidades = state.unidades.filter(u => u.associacaoId === id);
+  const clientesAssoc = state.clientes.filter(c => unidades.map(u => u.id).includes(c.unidadeId));
 
   const [colunas, setColunas] = useState([]);
-  const [linhas, setLinhas] = useState({}); // { competencia: { uc: { col: val } } }
+  const [faturas, setFaturas] = useState([]); // array de objetos do banco
   const [competencia, setCompetencia] = useState('');
   const [msg, setMsg] = useState('');
   const [importando, setImportando] = useState(false);
@@ -23,39 +25,57 @@ export default function AssociacaoView() {
   const [nomeColuna, setNomeColuna] = useState('');
   const fileRef = useRef();
 
-  const modoEdicao = useModoEdicao();
-
   const chaveConfig = `colunas_assoc_${id}`;
-  const chaveDados = `dados_assoc_${id}`;
 
-  // carregar colunas e dados do Supabase ao iniciar
+  // carregar colunas salvas e faturas do banco
   useEffect(() => {
     if (!id) return;
     async function carregar() {
+      // colunas salvas
       const { data: cfg } = await supabase.from('configuracoes').select('valor').eq('chave', chaveConfig).single();
       if (cfg?.valor) setColunas(cfg.valor);
 
-      const { data: dad } = await supabase.from('configuracoes').select('valor').eq('chave', chaveDados).single();
-      if (dad?.valor) {
-        setLinhas(dad.valor);
-        const comps = Object.keys(dad.valor).sort().reverse();
-        if (comps[0]) setCompetencia(comps[0]);
-      }
+      // faturas do banco para clientes desta associação
+      await carregarFaturas();
     }
     carregar();
   }, [id]);
+
+  async function carregarFaturas() {
+    const { data: cliDB } = await supabase.from('clientes').select('id, numero_cliente_enel, nome, cpf');
+    const idsAssoc = clientesAssoc.map(c => c.id);
+
+    // buscar todas as faturas dos clientes desta associação
+    const { data: fat } = await supabase
+      .from('faturas')
+      .select('*')
+      .in('cliente_id', idsAssoc.length > 0 ? idsAssoc : ['00000000-0000-0000-0000-000000000000']);
+
+    setFaturas(fat || []);
+
+    // definir competência mais recente
+    if (fat && fat.length > 0) {
+      const comps = [...new Set(fat.map(f => f.competencia))].sort().reverse();
+      setCompetencia(prev => prev || comps[0]);
+    }
+  }
 
   async function salvarColunas(novasColunas) {
     await supabase.from('configuracoes').upsert({ chave: chaveConfig, valor: novasColunas }, { onConflict: 'chave' });
     setColunas(novasColunas);
   }
 
-  async function salvarDados(novosLinhas) {
-    await supabase.from('configuracoes').upsert({ chave: chaveDados, valor: novosLinhas }, { onConflict: 'chave' });
-    setLinhas(novosLinhas);
-  }
+  // competências disponíveis
+  const competencias = [...new Set(faturas.map(f => f.competencia))].sort().reverse();
 
-  // importar xlsx
+  // faturas da competência selecionada
+  const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
+
+  // mapa clienteId → dados do cliente
+  const mapaCliente = {};
+  state.clientes.forEach(c => { mapaCliente[c.id] = c; });
+
+  // importar xlsx — cria colunas e grava no banco
   function lerXlsx(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -66,57 +86,72 @@ export default function AssociacaoView() {
         const wb = XLSX.read(ev.target.result, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-
         if (rows.length === 0) { setMsg('Arquivo vazio.'); setImportando(false); return; }
 
-        // colunas vêm do cabeçalho do xlsx
         const colsXlsx = Object.keys(rows[0]);
-
-        // salvar colunas (mantém as existentes + adiciona novas)
-        const colsAtuais = colunas.length > 0 ? colunas : colsXlsx;
-        const colsFinal = colsAtuais.length > 0 ? colsAtuais : colsXlsx;
+        const colsFinal = colunas.length > 0 ? colunas : colsXlsx;
         await salvarColunas(colsFinal);
 
-        // montar dados por competência
-        const novosLinhas = { ...linhas };
-        let count = 0;
+        // buscar clientes do banco
+        const { data: cliDB } = await supabase.from('clientes').select('id, numero_cliente_enel');
+        const mapaUC = {};
+        cliDB?.forEach(c => { if (c.numero_cliente_enel) mapaUC[c.numero_cliente_enel] = c.id; });
 
-        for (const row of rows) {
+        // criar clientes novos
+        const porUC = new Map();
+        rows.forEach(row => {
           const uc = (row['Número da UC'] || '').toString().trim();
-          const comp = (row['Competência'] || '').toString().trim();
-          if (!uc || !comp) continue;
+          if (uc) porUC.set(uc, row);
+        });
 
-          if (!novosLinhas[comp]) novosLinhas[comp] = {};
-          const rowData = {};
-          colsFinal.forEach(col => {
-            rowData[col] = row[col] !== undefined && row[col] !== null ? row[col].toString() : '';
+        let criados = 0;
+        for (const [uc, row] of porUC) {
+          if (mapaUC[uc]) continue;
+          const nome = (row['Titular da Conta'] || '').toString().trim();
+          if (!nome) continue;
+          const { data } = await addCliente({
+            nome, cpf: (row['CPF/CNPJ'] || '').toString().trim(),
+            numeroCliente: uc, numeroEnel: uc,
+            unidadeId: unidades[0]?.id || null, origem: assoc?.nome || '',
           });
-          novosLinhas[comp][uc] = rowData;
-          count++;
-
-          // criar cliente no banco se não existir
-          const existe = state.clientes.find(c => c.numeroCliente === uc);
-          if (!existe) {
-            const nome = (row['Titular da Conta'] || '').toString().trim();
-            if (nome) {
-              await addCliente({
-                nome,
-                cpf: (row['CPF/CNPJ'] || '').toString().trim(),
-                numeroCliente: uc,
-                numeroEnel: uc,
-                unidadeId: unidades[0]?.id || null,
-                origem: assoc?.nome || '',
-              });
-            }
-          }
+          if (data?.id) { mapaUC[uc] = data.id; criados++; }
         }
 
-        await salvarDados(novosLinhas);
-        const comps = Object.keys(novosLinhas).sort().reverse();
-        if (comps[0]) setCompetencia(comps[0]);
+        // gravar faturas
+        const meses = { 'janeiro':1,'fevereiro':2,'março':3,'marco':3,'abril':4,'maio':5,'junho':6,'julho':7,'agosto':8,'setembro':9,'outubro':10,'novembro':11,'dezembro':12 };
+        let gravadas = 0;
+        for (const row of rows) {
+          const uc = (row['Número da UC'] || '').toString().trim();
+          const compRaw = (row['Competência'] || row['Competencia'] || '').toString().trim();
+          if (!uc || !compRaw) continue;
+          const clienteId = mapaUC[uc];
+          if (!clienteId) continue;
 
-        const nComps = new Set(rows.map(r => r['Competência']).filter(Boolean)).size;
-        setMsg(`${count} linha(s) importada(s) em ${nComps} competência(s). Colunas: ${colsFinal.length}.`);
+          const partes = compRaw.toLowerCase().split(' ');
+          const mes = meses[partes[0]];
+          const ano = partes[1];
+          const comp = mes && ano ? String(mes).padStart(2,'0') + '/' + ano : compRaw;
+
+          const n = v => (v === '' || v === null || v === undefined) ? null : (isFinite(Number(v)) ? Number(v) : null);
+
+          await supabase.from('faturas').delete().eq('cliente_id', clienteId).eq('competencia', comp);
+          const { error } = await supabase.from('faturas').insert({
+            cliente_id: clienteId, competencia: comp,
+            status: (row['Status de Pagamento'] || '').toString().trim() || null,
+            valor_pontto: n(row['Total a Pagar Boleto Sunne']),
+            valor_concessionaria: n(row['Total a Pagar Boleto Concessionária'] || row['Total a Pagar Boleto Concessionaria']),
+            consumo_kwh: n(row['Consumo Total no Mês (kWh)'] || row['Consumo Total no Mes (kWh)']),
+            desconto: n(row['Percentual de Economia']),
+            vencimento_sunne: (row['Vencimento Sunne'] || '').toString() || null,
+            economia_no_mes: n(row['Economia no Mês'] || row['Economia no Mes']),
+            total_pago: n(row['Total Pago']),
+            dados_completos: row,
+          });
+          if (!error) gravadas++;
+        }
+
+        await carregarFaturas();
+        setMsg(`${criados} cliente(s) novo(s) · ${gravadas} fatura(s) gravada(s).`);
       } catch(err) {
         setMsg('Erro: ' + err.message);
       }
@@ -126,43 +161,34 @@ export default function AssociacaoView() {
     reader.readAsArrayBuffer(file);
   }
 
-  // editar célula
-  function salvarCell() {
-    if (!editCell || !competencia) return;
-    const novos = { ...linhas, [competencia]: { ...linhas[competencia], [editCell.uc]: { ...linhas[competencia][editCell.uc], [editCell.col]: editVal } } };
-    salvarDados(novos);
-    setEditCell(null);
-  }
-
-  // renomear coluna
   function salvarNomeColuna(idx) {
     if (!nomeColuna.trim()) return;
-    const novas = colunas.map((c, i) => i === idx ? nomeColuna.trim() : c);
-    salvarColunas(novas);
+    salvarColunas(colunas.map((c, i) => i === idx ? nomeColuna.trim() : c));
     setEditandoColuna(null);
   }
-
-  // excluir coluna
   function excluirColuna(idx) {
     if (!confirm(`Excluir coluna "${colunas[idx]}"?`)) return;
-    const novas = colunas.filter((_, i) => i !== idx);
-    salvarColunas(novas);
+    salvarColunas(colunas.filter((_, i) => i !== idx));
+  }
+
+  function getCellValue(fatura, col) {
+    // tenta no dados_completos primeiro, depois no campo direto
+    if (fatura.dados_completos && fatura.dados_completos[col] !== undefined) {
+      return fatura.dados_completos[col]?.toString() || '';
+    }
+    return '';
   }
 
   if (!assoc) return <div style={{padding:40,color:'#6b7280'}}>Associação não encontrada.</div>;
 
-  const competencias = Object.keys(linhas).sort().reverse();
-  const linhasComp = competencia ? Object.entries(linhas[competencia] || {}) : [];
-
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
-      {/* HEADER */}
       <div style={{ padding:'24px 32px 12px', flexShrink:0 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
           <div>
             <h1 style={{ fontSize:22, fontWeight:700, margin:'0 0 4px' }}>{assoc.nome}</h1>
             <p style={{ fontSize:13, color:'#6b7280', margin:0 }}>
-              {unidades.map(u=>u.nome).join(', ') || '—'} · {state.clientes.filter(c=>unidades.map(u=>u.id).includes(c.unidadeId)).length} cliente(s)
+              {unidades.map(u=>u.nome).join(', ') || '—'} · {clientesAssoc.length} cliente(s)
             </p>
           </div>
           <div style={{ display:'flex', gap:8 }}>
@@ -187,27 +213,24 @@ export default function AssociacaoView() {
             <option value="">Selecione...</option>
             {competencias.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          {competencia && <span style={{ fontSize:13, color:'#6b7280' }}>{linhasComp.length} linha(s)</span>}
+          {competencia && <span style={{ fontSize:13, color:'#9ca3af' }}>· {faturasFiltradas.length} linha(s)</span>}
           {colunas.length > 0 && <span style={{ fontSize:13, color:'#9ca3af' }}>· {colunas.length} coluna(s)</span>}
         </div>
       </div>
 
-      {/* TABELA */}
       <div style={{ flex:1, overflow:'auto', padding:'0 32px 32px' }}>
         {colunas.length === 0
           ? <div style={{ textAlign:'center', padding:60, color:'#9ca3af', fontSize:14 }}>
-              Importe um arquivo .xlsx para criar a tabela automaticamente.
+              {modoEdicao ? 'Importe um arquivo .xlsx para criar a tabela.' : 'Nenhum dado importado ainda.'}
             </div>
           : !competencia
-          ? <div style={{ textAlign:'center', padding:60, color:'#9ca3af', fontSize:14 }}>
-              Selecione uma competência acima.
-            </div>
+          ? <div style={{ textAlign:'center', padding:60, color:'#9ca3af', fontSize:14 }}>Selecione uma competência acima.</div>
           : <table style={{ borderCollapse:'collapse', fontSize:12.5, whiteSpace:'nowrap', minWidth:'max-content' }}>
               <thead>
                 <tr style={{ background:'#f7f6f2', position:'sticky', top:0, zIndex:10 }}>
                   {colunas.map((col, idx) => (
                     <th key={idx} style={{ padding:'10px 12px', border:'1px solid #e5e3dc', fontWeight:600, fontSize:11, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.04em', minWidth:140 }}>
-                      {editandoColuna === idx
+                      {modoEdicao && editandoColuna === idx
                         ? <div style={{ display:'flex', gap:4 }}>
                             <input value={nomeColuna} onChange={e=>setNomeColuna(e.target.value)}
                               onKeyDown={e => { if(e.key==='Enter') salvarNomeColuna(idx); if(e.key==='Escape') setEditandoColuna(null); }}
@@ -218,10 +241,10 @@ export default function AssociacaoView() {
                         : <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                             <span style={{ flex:1 }}>{col}</span>
                             {modoEdicao && <>
-                            <button onClick={() => { setEditandoColuna(idx); setNomeColuna(col); }}
-                              style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:11 }}>✏️</button>
-                            <button onClick={() => excluirColuna(idx)}
-                              style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:11 }}>🗑</button>
+                              <button onClick={() => { setEditandoColuna(idx); setNomeColuna(col); }}
+                                style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:11 }}>✏️</button>
+                              <button onClick={() => excluirColuna(idx)}
+                                style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', fontSize:11 }}>🗑</button>
                             </>}
                           </div>
                       }
@@ -230,21 +253,21 @@ export default function AssociacaoView() {
                 </tr>
               </thead>
               <tbody>
-                {linhasComp.length === 0
+                {faturasFiltradas.length === 0
                   ? <tr><td colSpan={colunas.length} style={{ padding:40, textAlign:'center', color:'#9ca3af' }}>Nenhum dado para esta competência.</td></tr>
-                  : linhasComp.map(([uc, rowData]) => (
-                      <tr key={uc}>
+                  : faturasFiltradas.map(fatura => (
+                      <tr key={fatura.id}>
                         {colunas.map((col, idx) => {
-                          const val = rowData[col] ?? '';
-                          const isEditing = editCell?.uc === uc && editCell?.col === col;
+                          const val = getCellValue(fatura, col);
+                          const isEditing = editCell?.id === fatura.id && editCell?.col === col;
                           return (
                             <td key={idx}
-                              onClick={() => modoEdicao && !isEditing && (setEditCell({uc, col}), setEditVal(val))}
-                              style={{ padding:'8px 12px', border:'1px solid #f0eeea', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', cursor:'pointer', background: isEditing ? '#fefce8' : 'transparent' }}>
+                              onClick={() => modoEdicao && !isEditing && (setEditCell({id: fatura.id, col}), setEditVal(val))}
+                              style={{ padding:'8px 12px', border:'1px solid #f0eeea', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', cursor: modoEdicao ? 'pointer' : 'default', background: isEditing ? '#fefce8' : 'transparent' }}>
                               {isEditing
                                 ? <input value={editVal} onChange={e => setEditVal(e.target.value)}
-                                    onBlur={salvarCell}
-                                    onKeyDown={e => { if(e.key==='Enter') salvarCell(); if(e.key==='Escape') setEditCell(null); }}
+                                    onBlur={() => setEditCell(null)}
+                                    onKeyDown={e => { if(e.key==='Escape') setEditCell(null); }}
                                     style={{ width:'100%', border:'1px solid #d4a017', borderRadius:4, padding:'2px 6px', fontSize:12.5, outline:'none' }} autoFocus />
                                 : <span title={val}>{val || <span style={{color:'#d1d5db'}}>—</span>}</span>
                               }
