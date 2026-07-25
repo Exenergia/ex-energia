@@ -55,7 +55,12 @@ export default function AssociacaoView() {
 
     // definir competência mais recente
     if (fat && fat.length > 0) {
-      const comps = [...new Set(fat.map(f => f.competencia))].sort().reverse();
+      const comps = [...new Set(fat.map(f => f.competencia))]
+        .sort((a, b) => {
+          const [ma, ya] = a.split('/'); const [mb, yb] = b.split('/');
+          return (Number(ya)*100 + Number(ma)) - (Number(yb)*100 + Number(mb));
+        })
+        .reverse();
       setCompetencia(prev => prev || comps[0]);
     }
   }
@@ -66,7 +71,12 @@ export default function AssociacaoView() {
   }
 
   // competências disponíveis
-  const competencias = [...new Set(faturas.map(f => f.competencia))].sort().reverse();
+  const competencias = [...new Set(faturas.map(f => f.competencia))]
+    .sort((a, b) => {
+      const [ma, ya] = a.split('/'); const [mb, yb] = b.split('/');
+      return (Number(ya)*100 + Number(ma)) - (Number(yb)*100 + Number(mb));
+    })
+    .reverse();
 
   // faturas da competência selecionada
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
