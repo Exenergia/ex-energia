@@ -93,37 +93,24 @@ async function login() {
   await new Promise(r => setTimeout(r, 2000));
 
   console.log('Procurando checkbox "Selecionar todos"...');
-  const marcou = await page.evaluate(() => {
+  const estrutura = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
       el.children.length === 0 && el.textContent.trim() === 'Selecionar todos'
     );
-    if (els.length === 0) return { ok: false, motivo: 'texto "Selecionar todos" não encontrado' };
-    let container = els[0];
-    for (let i = 0; i < 5 && container; i++) {
-      const cb = container.querySelector('input[type="checkbox"]');
-      if (cb) { cb.click(); return { ok: true }; }
-      container = container.parentElement;
+    if (els.length === 0) return null;
+    let el = els[0];
+    let niveis = [];
+    let atual = el;
+    for (let i = 0; i < 4 && atual; i++) {
+      niveis.push(atual.outerHTML.slice(0, 500));
+      atual = atual.parentElement;
     }
-    return { ok: false, motivo: 'nenhum checkbox encontrado perto do texto' };
+    return niveis;
   });
-  console.log('Resultado do clique:', JSON.stringify(marcou));
+  console.log('Estrutura HTML ao redor do texto (do elemento até 4 níveis acima):');
+  console.log(JSON.stringify(estrutura, null, 2));
 
-  if (!marcou.ok) {
-    console.error('FALHA ao marcar "Selecionar todos".');
-    await browser.close();
-    process.exit(1);
-  }
-
-  await new Promise(r => setTimeout(r, 2000));
-
-  const contador = await page.evaluate(() => {
-    const el = Array.from(document.querySelectorAll('*')).find(el =>
-      el.children.length === 0 && el.textContent.includes('selecionado(s)')
-    );
-    return el ? el.textContent.trim() : null;
-  });
-  console.log('Contador após marcar:', contador);
-
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma tentativa de marcar foi feita ainda.');
   await browser.close();
 }
 
