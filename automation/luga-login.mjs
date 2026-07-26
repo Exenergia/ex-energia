@@ -1,4 +1,6 @@
 import puppeteer from 'puppeteer';
+import fs from 'fs';
+import path from 'path';
 
 const EMAIL = process.env.LUGA_EMAIL;
 const SENHA = process.env.LUGA_PASSWORD;
@@ -17,6 +19,11 @@ async function login() {
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
+
+  const downloadPath = path.resolve('./downloads');
+  fs.mkdirSync(downloadPath, { recursive: true });
+  const client = await page.createCDPSession();
+  await client.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath });
 
   console.log('Acessando site da Luga...');
   await page.goto('https://luga.vendria.com.br/auth/login', {
@@ -166,7 +173,35 @@ async function login() {
   console.log('Conteúdo do modal aberto:');
   console.log(modal || 'Nenhum [role="dialog"] encontrado.');
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — nenhum clique dentro do modal foi feito ainda.');
+  console.log('Clicando em "Exportar" dentro do modal...');
+  const cliquei2 = await page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    if (!dialog) return false;
+    const btns = Array.from(dialog.querySelectorAll('button'));
+    const alvo = btns.find(b => b.textContent.trim() === 'Exportar');
+    if (!alvo) return false;
+    alvo.click();
+    return true;
+  });
+  if (!cliquei2) {
+    console.error('FALHA: botão "Exportar" não encontrado dentro do modal.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log('Aguardando download...');
+  await new Promise(r => setTimeout(r, 8000));
+
+  const arquivos = fs.readdirSync(downloadPath);
+  console.log('Arquivos na pasta de downloads:', arquivos);
+
+  if (arquivos.length === 0) {
+    console.error('FALHA: nenhum arquivo foi baixado.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log('DOWNLOAD OK — arquivo(s) confirmado(s):', arquivos.join(', '));
   await browser.close();
 }
 
