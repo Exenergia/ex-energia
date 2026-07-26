@@ -51,6 +51,26 @@ async function login() {
   }
 
   console.log('LOGIN OK — acesso confirmado.');
+
+  console.log('Procurando link "Unidades Consumidoras"...');
+  const clicou = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('a, button, div, span'));
+    const alvo = els.find(el => el.textContent.trim() === 'Unidades Consumidoras');
+    if (alvo) { alvo.click(); return true; }
+    return false;
+  });
+
+  if (!clicou) {
+    console.error('FALHA: não encontrei nenhum elemento com o texto exato "Unidades Consumidoras".');
+    await browser.close();
+    process.exit(1);
+  }
+
+  await new Promise(r => setTimeout(r, 3000));
+  console.log('Cliquei em "Unidades Consumidoras".');
+  console.log('URL atual:', page.url());
+  console.log('Título da página:', await page.title());
+
   await browser.close();
 }
 
