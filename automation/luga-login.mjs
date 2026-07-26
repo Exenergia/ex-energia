@@ -93,24 +93,32 @@ async function login() {
   await new Promise(r => setTimeout(r, 2000));
 
   console.log('Procurando checkbox "Selecionar todos"...');
-  const estrutura = await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Selecionar todos'
-    );
-    if (els.length === 0) return null;
-    let el = els[0];
-    let niveis = [];
-    let atual = el;
-    for (let i = 0; i < 4 && atual; i++) {
-      niveis.push(atual.outerHTML.slice(0, 500));
-      atual = atual.parentElement;
-    }
-    return niveis;
-  });
-  console.log('Estrutura HTML ao redor do texto (do elemento até 4 níveis acima):');
-  console.log(JSON.stringify(estrutura, null, 2));
+  const existe = await page.evaluate(() => !!document.querySelector('#select-all'));
+  if (!existe) {
+    console.error('FALHA: #select-all não encontrado.');
+    await browser.close();
+    process.exit(1);
+  }
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma tentativa de marcar foi feita ainda.');
+  await page.click('#select-all');
+  console.log('Cliquei em #select-all.');
+
+  await new Promise(r => setTimeout(r, 2000));
+
+  const contador = await page.evaluate(() => {
+    const el = Array.from(document.querySelectorAll('*')).find(el =>
+      el.children.length === 0 && el.textContent.includes('selecionado(s)')
+    );
+    return el ? el.textContent.trim() : null;
+  });
+  console.log('Contador após marcar:', contador);
+
+  const estadoBotao = await page.evaluate(() => {
+    const b = document.querySelector('#select-all');
+    return b ? b.getAttribute('aria-checked') : null;
+  });
+  console.log('aria-checked do botão:', estadoBotao);
+
   await browser.close();
 }
 
