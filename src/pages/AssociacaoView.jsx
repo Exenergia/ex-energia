@@ -99,10 +99,12 @@ export default function AssociacaoView() {
   const colunaValor = colunas.find(c => COLUNAS_VALOR.some(alvo => alvo.toLowerCase() === c.toLowerCase()));
   const totalValor = somarColuna(colunaValor);
 
-  const colunaInjetada = colunas.find(c => c.toLowerCase().includes('injetada'));
+  const ehLugaOuFred = colunas.some(c => c.toLowerCase() === 'valor a pagar');
+
+  const colunaInjetada = ehLugaOuFred ? colunas.find(c => c.toLowerCase().includes('injetada')) : null;
   const totalInjetada = somarColuna(colunaInjetada);
 
-  const colunaConsumida = colunas.find(c => c.toLowerCase().includes('consumid') || c.toLowerCase().includes('consumo'));
+  const colunaConsumida = ehLugaOuFred ? colunas.find(c => c.toLowerCase().includes('consumid') || c.toLowerCase().includes('consumo')) : null;
   const totalConsumida = somarColuna(colunaConsumida);
 
   // mapa clienteId → dados do cliente
