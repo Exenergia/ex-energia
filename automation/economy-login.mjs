@@ -88,6 +88,36 @@ async function login() {
   console.log('URL atual:', page.url());
   console.log('Título da página:', await page.title());
 
+  await new Promise(r => setTimeout(r, 2000));
+
+  console.log('Clicando no dropdown "Ano"...');
+  const abriuAno = await page.evaluate(() => {
+    const labels = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Ano'
+    );
+    if (labels.length === 0) return { ok: false, motivo: 'label "Ano" não encontrado' };
+    // procura o controle clicável mais próximo, dentro do container pai
+    let container = labels[0].parentElement;
+    for (let i = 0; i < 4 && container; i++) {
+      const btn = container.querySelector('button, [role="combobox"], [role="button"], select');
+      if (btn) { btn.click(); return { ok: true, tag: btn.tagName }; }
+      container = container.parentElement;
+    }
+    return { ok: false, motivo: 'nenhum controle clicável encontrado perto do label' };
+  });
+  console.log('Resultado:', JSON.stringify(abriuAno));
+  await new Promise(r => setTimeout(r, 1500));
+
+  const estruturaAno = await page.evaluate(() => {
+    // pega qualquer painel/listbox que tenha aparecido, ou o body inteiro resumido se não achar nada específico
+    const listbox = document.querySelector('[role="listbox"], .dropdown-menu, [class*="menu"][class*="open"]');
+    if (listbox) return listbox.outerHTML.slice(0, 3000);
+    return 'Nenhum [role="listbox"] ou menu aberto encontrado.';
+  });
+  console.log('Estrutura do dropdown aberto:');
+  console.log(estruturaAno);
+
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma seleção foi feita ainda.');
   await browser.close();
 }
 
