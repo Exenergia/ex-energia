@@ -53,11 +53,30 @@ async function login() {
   console.log('LOGIN OK — acesso confirmado.');
 
   console.log('Procurando link "Unidades Consumidoras"...');
+  const candidatos = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Unidades Consumidoras'
+    );
+    return els.map(el => {
+      const link = el.closest('a');
+      return {
+        tag: el.tagName,
+        temAncestralLink: !!link,
+        hrefAncestral: link ? link.href : null,
+      };
+    });
+  });
+  console.log('Candidatos encontrados:');
+  console.log(JSON.stringify(candidatos, null, 2));
+
   const clicou = await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('a, button, div, span'));
-    const alvo = els.find(el => el.textContent.trim() === 'Unidades Consumidoras');
-    if (alvo) { alvo.click(); return true; }
-    return false;
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Unidades Consumidoras'
+    );
+    if (els.length === 0) return false;
+    const alvo = els[0].closest('a') || els[0].closest('button') || els[0];
+    alvo.click();
+    return true;
   });
 
   if (!clicou) {
@@ -66,7 +85,7 @@ async function login() {
     process.exit(1);
   }
 
-  await new Promise(r => setTimeout(r, 3000));
+  await new Promise(r => setTimeout(r, 4000));
   console.log('Cliquei em "Unidades Consumidoras".');
   console.log('URL atual:', page.url());
   console.log('Título da página:', await page.title());
