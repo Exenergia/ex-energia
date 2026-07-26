@@ -223,7 +223,7 @@ export default function AssociacaoView() {
       const ehValor = colLower.includes('valor');
       const ehEnergia = colLower.includes('injetada') || colLower.includes('consumid') || colLower.includes('consumo');
 
-      if (ehValor || ehEnergia || typeof raw === 'number') {
+      if (ehValor || ehEnergia) {
         const num = parseSmartNumber(raw);
         if (num !== null) {
           if (ehValor) return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
