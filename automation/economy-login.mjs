@@ -90,34 +90,24 @@ async function login() {
 
   await new Promise(r => setTimeout(r, 2000));
 
-  console.log('Clicando no dropdown "Ano"...');
-  const abriuAno = await page.evaluate(() => {
+  console.log('Inspecionando estrutura ao redor do label "Ano"...');
+  const estrutura = await page.evaluate(() => {
     const labels = Array.from(document.querySelectorAll('*')).filter(el =>
       el.children.length === 0 && el.textContent.trim() === 'Ano'
     );
-    if (labels.length === 0) return { ok: false, motivo: 'label "Ano" não encontrado' };
-    // procura o controle clicável mais próximo, dentro do container pai
-    let container = labels[0].parentElement;
-    for (let i = 0; i < 4 && container; i++) {
-      const btn = container.querySelector('button, [role="combobox"], [role="button"], select');
-      if (btn) { btn.click(); return { ok: true, tag: btn.tagName }; }
-      container = container.parentElement;
+    if (labels.length === 0) return null;
+    let niveis = [];
+    let atual = labels[0];
+    for (let i = 0; i < 5 && atual; i++) {
+      niveis.push(atual.outerHTML.slice(0, 500));
+      atual = atual.parentElement;
     }
-    return { ok: false, motivo: 'nenhum controle clicável encontrado perto do label' };
+    return niveis;
   });
-  console.log('Resultado:', JSON.stringify(abriuAno));
-  await new Promise(r => setTimeout(r, 1500));
+  console.log('Estrutura HTML (do label "Ano" até 5 níveis acima):');
+  console.log(JSON.stringify(estrutura, null, 2));
 
-  const estruturaAno = await page.evaluate(() => {
-    // pega qualquer painel/listbox que tenha aparecido, ou o body inteiro resumido se não achar nada específico
-    const listbox = document.querySelector('[role="listbox"], .dropdown-menu, [class*="menu"][class*="open"]');
-    if (listbox) return listbox.outerHTML.slice(0, 3000);
-    return 'Nenhum [role="listbox"] ou menu aberto encontrado.';
-  });
-  console.log('Estrutura do dropdown aberto:');
-  console.log(estruturaAno);
-
-  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma seleção foi feita ainda.');
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhum clique foi feito ainda.');
   await browser.close();
 }
 
