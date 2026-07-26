@@ -121,6 +121,24 @@ async function login() {
   console.log('Opções do dropdown de Ano:');
   console.log(opcoesAno);
 
+  console.log('Ano já vem selecionado por padrão (só existe 2026). Fechando dropdown de ano...');
+  await page.click('#dropdownYearButton');
+  await new Promise(r => setTimeout(r, 800));
+
+  console.log('Clicando em #dropdownMonthButton...');
+  await page.click('#dropdownMonthButton');
+  await new Promise(r => setTimeout(r, 1000));
+
+  const opcoesMes = await page.evaluate(() => {
+    const btn = document.querySelector('#dropdownMonthButton');
+    const container = btn.closest('.dropdown');
+    const menu = container.querySelector('.dropdown-menu');
+    if (!menu) return 'Nenhum .dropdown-menu encontrado dentro do container.';
+    return menu.outerHTML.slice(0, 3000);
+  });
+  console.log('Opções do dropdown de Mês:');
+  console.log(opcoesMes);
+
   console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma seleção foi feita ainda.');
   await browser.close();
 }
