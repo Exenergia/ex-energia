@@ -26,9 +26,9 @@ jobs:
           LUGA_PASSWORD: ${{ secrets.LUGA_PASSWORD }}
         run: node automation/luga-login.mjs
 
-      - name: Upload screenshot de falha
+      - name: Upload downloads
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
-          name: luga-login-falha
+          name: luga-downloads
           path: downloads/
