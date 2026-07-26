@@ -90,6 +90,40 @@ async function login() {
   console.log('URL atual:', page.url());
   console.log('Título da página:', await page.title());
 
+  await new Promise(r => setTimeout(r, 2000));
+
+  console.log('Procurando checkbox "Selecionar todos"...');
+  const marcou = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Selecionar todos'
+    );
+    if (els.length === 0) return { ok: false, motivo: 'texto "Selecionar todos" não encontrado' };
+    let container = els[0];
+    for (let i = 0; i < 5 && container; i++) {
+      const cb = container.querySelector('input[type="checkbox"]');
+      if (cb) { cb.click(); return { ok: true }; }
+      container = container.parentElement;
+    }
+    return { ok: false, motivo: 'nenhum checkbox encontrado perto do texto' };
+  });
+  console.log('Resultado do clique:', JSON.stringify(marcou));
+
+  if (!marcou.ok) {
+    console.error('FALHA ao marcar "Selecionar todos".');
+    await browser.close();
+    process.exit(1);
+  }
+
+  await new Promise(r => setTimeout(r, 2000));
+
+  const contador = await page.evaluate(() => {
+    const el = Array.from(document.querySelectorAll('*')).find(el =>
+      el.children.length === 0 && el.textContent.includes('selecionado(s)')
+    );
+    return el ? el.textContent.trim() : null;
+  });
+  console.log('Contador após marcar:', contador);
+
   await browser.close();
 }
 
