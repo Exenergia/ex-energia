@@ -81,15 +81,29 @@ export default function AssociacaoView() {
   // faturas da competência selecionada
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
 
+  function parseNumBR(str) {
+    if (!str) return 0;
+    const temVirgula = str.includes(',');
+    let limpo = str.toString().replace(/[^\d,.-]/g, '');
+    if (temVirgula) limpo = limpo.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(limpo);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function somarColuna(col) {
+    if (!col) return null;
+    return faturasFiltradas.reduce((acc, fatura) => acc + parseNumBR(getCellValue(fatura, col)), 0);
+  }
+
   const COLUNAS_VALOR = ['Valor a Pagar', 'Valor com Plano'];
   const colunaValor = colunas.find(c => COLUNAS_VALOR.some(alvo => alvo.toLowerCase() === c.toLowerCase()));
-  const totalValor = colunaValor
-    ? faturasFiltradas.reduce((acc, fatura) => {
-        const raw = (getCellValue(fatura, colunaValor) || '').toString();
-        const num = parseFloat(raw.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'));
-        return acc + (isNaN(num) ? 0 : num);
-      }, 0)
-    : null;
+  const totalValor = somarColuna(colunaValor);
+
+  const colunaInjetada = colunas.find(c => c.toLowerCase().includes('injetada'));
+  const totalInjetada = somarColuna(colunaInjetada);
+
+  const colunaConsumida = colunas.find(c => c.toLowerCase().includes('consumid') || c.toLowerCase().includes('consumo'));
+  const totalConsumida = somarColuna(colunaConsumida);
 
   // mapa clienteId → dados do cliente
   const mapaCliente = {};
@@ -240,6 +254,8 @@ export default function AssociacaoView() {
           {competencia && <span style={{ fontSize:13, color:'#9ca3af' }}>· {faturasFiltradas.length} linha(s)</span>}
           {colunas.length > 0 && <span style={{ fontSize:13, color:'#9ca3af' }}>· {colunas.length} coluna(s)</span>}
           {totalValor !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Total: {totalValor.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</span>}
+          {totalInjetada !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Energia Injetada: {totalInjetada.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalConsumida !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Energia Consumida: {totalConsumida.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
         </div>
       </div>
 
