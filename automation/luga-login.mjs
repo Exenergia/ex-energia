@@ -23,34 +23,32 @@ async function login() {
     waitUntil: 'networkidle2',
     timeout: 30000,
   });
+  await new Promise(r => setTimeout(r, 2000));
 
-  console.log('Preenchendo email...');
-  await page.waitForSelector('input[type="email"], input[name="email"], input[placeholder*="mail"]', { timeout: 15000 });
-  await page.type('input[type="email"], input[name="email"], input[placeholder*="mail"]', EMAIL, { delay: 50 });
+  console.log('Título da página:', await page.title());
+  console.log('URL atual:', page.url());
 
-  console.log('Preenchendo senha...');
-  await page.waitForSelector('input[type="password"]', { timeout: 15000 });
-  await page.type('input[type="password"]', SENHA, { delay: 50 });
+  const campos = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('input')).map(el => ({
+      type: el.type,
+      name: el.name,
+      id: el.id,
+      placeholder: el.placeholder,
+    }));
+  });
+  console.log('Campos <input> encontrados na página:');
+  console.log(JSON.stringify(campos, null, 2));
 
-  console.log('Clicando em entrar...');
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
-    page.click('button[type="submit"]'),
-  ]);
+  const botoes = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('button')).map(el => ({
+      type: el.type,
+      text: el.textContent.trim(),
+    }));
+  });
+  console.log('Botões encontrados na página:');
+  console.log(JSON.stringify(botoes, null, 2));
 
-  await new Promise(r => setTimeout(r, 3000));
-
-  const url = page.url();
-  console.log('URL após login:', url);
-
-  if (url.includes('/auth/login')) {
-    console.error('FALHA: ainda na página de login. Verifique credenciais ou seletores do formulário.');
-    await page.screenshot({ path: 'downloads/luga-login-falha.png' }).catch(() => {});
-    await browser.close();
-    process.exit(1);
-  }
-
-  console.log('LOGIN OK — acesso confirmado.');
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma tentativa de login foi feita ainda.');
   await browser.close();
 }
 
