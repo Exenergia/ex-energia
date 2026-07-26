@@ -107,7 +107,21 @@ async function login() {
   console.log('Estrutura HTML (do label "Ano" até 5 níveis acima):');
   console.log(JSON.stringify(estrutura, null, 2));
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — nenhum clique foi feito ainda.');
+  console.log('Clicando em #dropdownYearButton...');
+  await page.click('#dropdownYearButton');
+  await new Promise(r => setTimeout(r, 1000));
+
+  const opcoesAno = await page.evaluate(() => {
+    const btn = document.querySelector('#dropdownYearButton');
+    const container = btn.closest('.dropdown');
+    const menu = container.querySelector('.dropdown-menu');
+    if (!menu) return 'Nenhum .dropdown-menu encontrado dentro do container.';
+    return menu.outerHTML.slice(0, 3000);
+  });
+  console.log('Opções do dropdown de Ano:');
+  console.log(opcoesAno);
+
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma seleção foi feita ainda.');
   await browser.close();
 }
 
