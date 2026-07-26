@@ -168,7 +168,25 @@ async function login() {
   console.log('Trechos de JS encontrados com a lógica de seleção de meses:');
   console.log(JSON.stringify(trechoJS, null, 2));
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — ainda não tentei clicar em nada relacionado a meses.');
+  console.log('Usando jQuery direto (mesma função do site) pra marcar só Janeiro/2026...');
+  await page.evaluate(() => {
+    window.$('.month-checkbox, .year-checkbox').prop('checked', false);
+    window.$('#month-1').prop('checked', true);
+    window.$('#year-2026').prop('checked', true);
+    if (typeof updateAllSelectedCount === 'function') updateAllSelectedCount();
+  });
+  await new Promise(r => setTimeout(r, 500));
+
+  const estadoFinal = await page.evaluate(() => ({
+    meses: Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked })),
+    anos: Array.from(document.querySelectorAll('.year-checkbox')).map(el => ({ id: el.id, checked: el.checked })),
+    textoBotaoMes: document.querySelector('#dropdownMonthButton')?.textContent.trim(),
+    textoBotaoAno: document.querySelector('#dropdownYearButton')?.textContent.trim(),
+  }));
+  console.log('Estado final depois de usar jQuery direto:');
+  console.log(JSON.stringify(estadoFinal, null, 2));
+
+  console.log('DIAGNÓSTICO CONCLUÍDO — ainda não gerei nenhum relatório.');
   await browser.close();
 }
 
