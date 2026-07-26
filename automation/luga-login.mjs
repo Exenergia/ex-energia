@@ -52,10 +52,10 @@ async function login() {
 
   console.log('LOGIN OK — acesso confirmado.');
 
-  console.log('Procurando link "Unidades Consumidoras"...');
+  console.log('Procurando link "Faturamentos"...');
   const candidatos = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Unidades Consumidoras'
+      el.children.length === 0 && el.textContent.trim() === 'Faturamentos'
     );
     return els.map(el => {
       const link = el.closest('a');
@@ -71,7 +71,7 @@ async function login() {
 
   const clicou = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Unidades Consumidoras'
+      el.children.length === 0 && el.textContent.trim() === 'Faturamentos'
     );
     if (els.length === 0) return false;
     const alvo = els[0].closest('a') || els[0].closest('button') || els[0];
@@ -80,13 +80,13 @@ async function login() {
   });
 
   if (!clicou) {
-    console.error('FALHA: não encontrei nenhum elemento com o texto exato "Unidades Consumidoras".');
+    console.error('FALHA: não encontrei nenhum elemento com o texto exato "Faturamentos".');
     await browser.close();
     process.exit(1);
   }
 
   await new Promise(r => setTimeout(r, 4000));
-  console.log('Cliquei em "Unidades Consumidoras".');
+  console.log('Cliquei em "Faturamentos".');
   console.log('URL atual:', page.url());
   console.log('Título da página:', await page.title());
 
