@@ -81,7 +81,7 @@ export default function AssociacaoView() {
   // faturas da competência selecionada
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
 
-  const COLUNAS_VALOR = ['Valor a Pagar', 'Total a Pagar Boleto Sunne'];
+  const COLUNAS_VALOR = ['Valor a Pagar', 'Valor com Plano'];
   const colunaValor = COLUNAS_VALOR.find(c => colunas.includes(c));
   const totalValor = colunaValor
     ? faturasFiltradas.reduce((acc, fatura) => {
