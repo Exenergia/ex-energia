@@ -1,0 +1,34 @@
+name: Teste Login Luga
+
+on:
+  workflow_dispatch:
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar Chromium
+        run: npx puppeteer browsers install chrome
+
+      - name: Testar login Luga
+        env:
+          LUGA_EMAIL: ${{ secrets.LUGA_EMAIL }}
+          LUGA_PASSWORD: ${{ secrets.LUGA_PASSWORD }}
+        run: node automation/luga-login.mjs
+
+      - name: Upload screenshot de falha
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: luga-login-falha
+          path: downloads/
