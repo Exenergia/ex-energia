@@ -81,18 +81,26 @@ export default function AssociacaoView() {
   // faturas da competência selecionada
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
 
-  function parseNumBR(str) {
-    if (!str) return 0;
-    const temVirgula = str.includes(',');
-    let limpo = str.toString().replace(/[^\d,.-]/g, '');
-    if (temVirgula) limpo = limpo.replace(/\./g, '').replace(',', '.');
-    const num = parseFloat(limpo);
-    return isNaN(num) ? 0 : num;
+  function parseSmartNumber(rawVal) {
+    if (typeof rawVal === 'number') return rawVal;
+    if (!rawVal) return null;
+    let s = rawVal.toString().replace(/[^\d,.-]/g, '');
+    if (s === '') return null;
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    if (lastComma > -1 && lastDot > -1) {
+      if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.'); // estilo BR: 1.234,56
+      else s = s.replace(/,/g, ''); // estilo US: 1,234.56
+    } else if (lastComma > -1) {
+      s = s.replace(',', '.'); // só vírgula → decimal BR
+    }
+    const num = parseFloat(s);
+    return isNaN(num) ? null : num;
   }
 
   function somarColuna(col) {
     if (!col) return null;
-    return faturasFiltradas.reduce((acc, fatura) => acc + parseNumBR(getCellValue(fatura, col)), 0);
+    return faturasFiltradas.reduce((acc, fatura) => acc + (parseSmartNumber(getCellValue(fatura, col)) || 0), 0);
   }
 
   const COLUNAS_VALOR = ['Valor a Pagar', 'Valor com Plano'];
@@ -211,8 +219,14 @@ export default function AssociacaoView() {
     // tenta no dados_completos primeiro, depois no campo direto
     if (fatura.dados_completos && fatura.dados_completos[col] !== undefined) {
       const raw = fatura.dados_completos[col];
-      if (col.toLowerCase().includes('valor') && typeof raw === 'number') {
-        return raw.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      const colLower = col.toLowerCase();
+      if (colLower.includes('valor')) {
+        const num = parseSmartNumber(raw);
+        if (num !== null) return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+      if (colLower.includes('injetada') || colLower.includes('consumid') || colLower.includes('consumo')) {
+        const num = parseSmartNumber(raw);
+        if (num !== null) return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
       return raw?.toString() || '';
     }
