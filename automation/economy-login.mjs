@@ -163,31 +163,45 @@ async function login() {
   console.log(JSON.stringify(estadoFinal, null, 2));
 
   console.log('Clicando em "Gerar Relatório de Faturas"...');
-  const clicouGerar = await page.evaluate(() => {
+  const infoClique = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
       el.children.length === 0 && el.textContent.trim() === 'Gerar Relatório de Faturas'
     );
-    if (els.length === 0) return false;
-    (els[0].closest('button') || els[0]).click();
-    return true;
+    if (els.length === 0) return { ok: false };
+    const btn = els[0].closest('button') || els[0];
+    if (!btn.id) btn.id = 'botao-gerar-faturas-debug';
+    btn.click();
+    return { ok: true, htmlAntes: btn.outerHTML.slice(0, 400), idUsado: btn.id };
   });
-  if (!clicouGerar) {
+  console.log('Resultado do clique:', JSON.stringify(infoClique));
+  if (!infoClique.ok) {
     console.error('FALHA: botão "Gerar Relatório de Faturas" não encontrado.');
     await browser.close();
     process.exit(1);
   }
 
+  await new Promise(r => setTimeout(r, 1500));
+  const estadoLogoApos = await page.evaluate((id) => {
+    const btn = document.getElementById(id);
+    const toasts = Array.from(document.querySelectorAll('.toast, .alert, .swal2-popup')).map(t => t.textContent.trim());
+    return { htmlDepois: btn ? btn.outerHTML.slice(0, 400) : '(botão sumiu)', toasts };
+  }, infoClique.idUsado);
+  console.log('Estado do botão 1.5s após o clique:', JSON.stringify(estadoLogoApos, null, 2));
+
   console.log('Aguardando o botão virar "Baixar Relatório de Faturas"...');
   let virouBaixar = false;
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 2000));
-    virouBaixar = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('*')).some(el =>
+  for (let i = 0; i < 15; i++) {
+    await new Promise(r => setTimeout(r, 4000));
+    const check = await page.evaluate((id) => {
+      const btn = document.getElementById(id);
+      const achouBaixar = Array.from(document.querySelectorAll('*')).some(el =>
         el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
-      )
-    );
+      );
+      return { achouBaixar, htmlAtual: btn ? btn.outerHTML.slice(0, 300) : '(sumiu)' };
+    }, infoClique.idUsado);
+    virouBaixar = check.achouBaixar;
     if (virouBaixar) break;
-    console.log(`  ainda gerando... (tentativa ${i + 1}/30)`);
+    console.log(`  tentativa ${i + 1}/15 — html atual do botão: ${check.htmlAtual}`);
   }
 
   if (!virouBaixar) {
