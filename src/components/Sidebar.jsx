@@ -31,7 +31,6 @@ export default function Sidebar() {
         ))}
 
         <div className="sb-divider" />
-        <Item to="/clientes" icon={Users} label="Clientes EX Energia" count={state.clientes.length} />
         <Item to="/geracao" icon={TrendingUp} label="Geração & Créditos" />
         <Item to="/conflitos" icon={AlertTriangle} label="Conflitos" count={state.conflitos.length} />
       </nav>
