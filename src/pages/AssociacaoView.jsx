@@ -82,7 +82,7 @@ export default function AssociacaoView() {
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
 
   const COLUNAS_VALOR = ['Valor a Pagar', 'Valor com Plano'];
-  const colunaValor = COLUNAS_VALOR.find(c => colunas.includes(c));
+  const colunaValor = colunas.find(c => COLUNAS_VALOR.some(alvo => alvo.toLowerCase() === c.toLowerCase()));
   const totalValor = colunaValor
     ? faturasFiltradas.reduce((acc, fatura) => {
         const raw = (getCellValue(fatura, colunaValor) || '').toString();
