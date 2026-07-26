@@ -81,6 +81,14 @@ export default function AssociacaoView() {
   // faturas da competência selecionada
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
 
+  const totalValor = colunas.includes('Valor a Pagar')
+    ? faturasFiltradas.reduce((acc, fatura) => {
+        const raw = (getCellValue(fatura, 'Valor a Pagar') || '').toString();
+        const num = parseFloat(raw.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'));
+        return acc + (isNaN(num) ? 0 : num);
+      }, 0)
+    : null;
+
   // mapa clienteId → dados do cliente
   const mapaCliente = {};
   state.clientes.forEach(c => { mapaCliente[c.id] = c; });
@@ -225,6 +233,7 @@ export default function AssociacaoView() {
           </select>
           {competencia && <span style={{ fontSize:13, color:'#9ca3af' }}>· {faturasFiltradas.length} linha(s)</span>}
           {colunas.length > 0 && <span style={{ fontSize:13, color:'#9ca3af' }}>· {colunas.length} coluna(s)</span>}
+          {totalValor !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Total: {totalValor.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</span>}
         </div>
       </div>
 
