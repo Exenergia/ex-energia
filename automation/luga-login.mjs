@@ -119,6 +119,29 @@ async function login() {
   });
   console.log('aria-checked do botão:', estadoBotao);
 
+  console.log('Rolando até o fim da página...');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await new Promise(r => setTimeout(r, 1500));
+
+  console.log('Procurando botão "Exportar relatório"...');
+  const estruturaBotao = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Exportar relatório'
+    );
+    if (els.length === 0) return null;
+    let el = els[0];
+    let niveis = [];
+    let atual = el;
+    for (let i = 0; i < 3 && atual; i++) {
+      niveis.push(atual.outerHTML.slice(0, 400));
+      atual = atual.parentElement;
+    }
+    return niveis;
+  });
+  console.log('Estrutura HTML ao redor de "Exportar relatório":');
+  console.log(JSON.stringify(estruturaBotao, null, 2));
+
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhum clique em "Exportar relatório" foi feito ainda.');
   await browser.close();
 }
 
