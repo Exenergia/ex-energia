@@ -139,18 +139,28 @@ async function login() {
   console.log('Opções do dropdown de Mês:');
   console.log(opcoesMes);
 
-  console.log('Desmarcando "Selecionar todos" dos meses...');
-  await page.click('#select-all-months');
+  console.log('Desmarcando "Selecionar todos" dos meses (clicando na div ao redor, não no input)...');
+  await page.evaluate(() => {
+    document.querySelector('#select-all-months').closest('.form-check').click();
+  });
   await new Promise(r => setTimeout(r, 800));
 
-  console.log('Marcando só Janeiro (#month-1)...');
-  await page.click('#month-1');
+  const estadoAposDesmarcar = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked }));
+  });
+  console.log('Estado de cada mês logo após clicar em "Selecionar todos" (esperado: tudo false):');
+  console.log(JSON.stringify(estadoAposDesmarcar, null, 2));
+
+  console.log('Marcando só Janeiro (clicando na div ao redor de #month-1)...');
+  await page.evaluate(() => {
+    document.querySelector('#month-1').closest('.form-check').click();
+  });
   await new Promise(r => setTimeout(r, 800));
 
   const estadoMeses = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked }));
   });
-  console.log('Estado de cada mês depois da seleção:');
+  console.log('Estado de cada mês depois da seleção final:');
   console.log(JSON.stringify(estadoMeses, null, 2));
 
   console.log('DIAGNÓSTICO CONCLUÍDO — ainda não gerei nenhum relatório.');
