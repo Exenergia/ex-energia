@@ -112,6 +112,8 @@ async function gravarDados(caminhoArquivo) {
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = utils.sheet_to_json(ws, { defval: '' });
   console.log(`Linhas no arquivo: ${rows.length}`);
+  console.log('Colunas reais do arquivo:', rows.length > 0 ? JSON.stringify(Object.keys(rows[0])) : '(vazio)');
+  console.log('Primeira linha completa:', rows.length > 0 ? JSON.stringify(rows[0]) : '(vazio)');
 
   const { data: clientesDB } = await supabase.from('clientes').select('id, numero_cliente_enel');
   const mapaUC = {};
