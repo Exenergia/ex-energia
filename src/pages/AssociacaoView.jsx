@@ -220,13 +220,15 @@ export default function AssociacaoView() {
     if (fatura.dados_completos && fatura.dados_completos[col] !== undefined) {
       const raw = fatura.dados_completos[col];
       const colLower = col.toLowerCase();
-      if (colLower.includes('valor')) {
+      const ehValor = colLower.includes('valor');
+      const ehEnergia = colLower.includes('injetada') || colLower.includes('consumid') || colLower.includes('consumo');
+
+      if (ehValor || ehEnergia || typeof raw === 'number') {
         const num = parseSmartNumber(raw);
-        if (num !== null) return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      }
-      if (colLower.includes('injetada') || colLower.includes('consumid') || colLower.includes('consumo')) {
-        const num = parseSmartNumber(raw);
-        if (num !== null) return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (num !== null) {
+          if (ehValor) return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
       }
       return raw?.toString() || '';
     }
