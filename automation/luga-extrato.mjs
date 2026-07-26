@@ -110,10 +110,23 @@ async function gravarDados(caminhoArquivo) {
 
   const wb = readFile(caminhoArquivo);
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = utils.sheet_to_json(ws, { defval: '' });
-  console.log(`Linhas no arquivo: ${rows.length}`);
-  console.log('Colunas reais do arquivo:', rows.length > 0 ? JSON.stringify(Object.keys(rows[0])) : '(vazio)');
-  console.log('Primeira linha completa:', rows.length > 0 ? JSON.stringify(rows[0]) : '(vazio)');
+  const raw = utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  const headerRowIdx = raw.findIndex(r => r.includes('Competência'));
+  if (headerRowIdx === -1) throw new Error('Não encontrei a linha de cabeçalho com "Competência" no arquivo.');
+  const headers = raw[headerRowIdx];
+  console.log('Cabeçalho encontrado na linha', headerRowIdx + 1, ':', JSON.stringify(headers));
+
+  const rows = raw.slice(headerRowIdx + 1)
+    .map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ''; });
+      return obj;
+    })
+    .filter(r => Object.values(r).some(v => v !== ''));
+
+  console.log(`Linhas de dados no arquivo: ${rows.length}`);
+  console.log('Primeira linha de dados:', rows.length > 0 ? JSON.stringify(rows[0]) : '(vazio)');
 
   const { data: clientesDB } = await supabase.from('clientes').select('id, numero_cliente_enel');
   const mapaUC = {};
