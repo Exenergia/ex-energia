@@ -6,6 +6,7 @@ on:
 jobs:
   login:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -25,3 +26,10 @@ jobs:
           ECONOMY_EMAIL: ${{ secrets.ECONOMY_EMAIL }}
           ECONOMY_PASSWORD: ${{ secrets.ECONOMY_PASSWORD }}
         run: node automation/economy-login.mjs
+
+      - name: Upload downloads
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: economy-downloads
+          path: downloads/

@@ -1,4 +1,6 @@
 import puppeteer from 'puppeteer';
+import fs from 'fs';
+import path from 'path';
 
 const USUARIO = process.env.ECONOMY_EMAIL;
 const SENHA = process.env.ECONOMY_PASSWORD;
@@ -17,6 +19,11 @@ async function login() {
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
+
+  const downloadPath = path.resolve('./downloads');
+  fs.mkdirSync(downloadPath, { recursive: true });
+  const client = await page.createCDPSession();
+  await client.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath });
 
   console.log('Acessando site da Digital Grid...');
   await page.goto('https://gestao.dg.energy/login/', { waitUntil: 'networkidle2', timeout: 30000 });
@@ -139,35 +146,6 @@ async function login() {
   console.log('Opções do dropdown de Mês:');
   console.log(opcoesMes);
 
-  console.log('Buscando o código JS da página pra entender a lógica de "Selecionar todos"...');
-  const trechoJS = await page.evaluate(async () => {
-    const scripts = Array.from(document.querySelectorAll('script[src]')).map(s => s.src);
-    let resultado = [];
-    for (const src of scripts) {
-      try {
-        const res = await fetch(src);
-        const texto = await res.text();
-        if (texto.includes('select-all-months') || texto.includes('month-checkbox')) {
-          const idx = texto.indexOf('select-all-months');
-          const idx2 = idx > -1 ? idx : texto.indexOf('month-checkbox');
-          resultado.push({ src, trecho: texto.slice(Math.max(0, idx2 - 500), idx2 + 1000) });
-        }
-      } catch (e) { /* ignora scripts que falharem */ }
-    }
-    // também procura em <script> inline (sem src)
-    const inlineScripts = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent);
-    for (const texto of inlineScripts) {
-      if (texto.includes('select-all-months') || texto.includes('month-checkbox')) {
-        const idx = texto.indexOf('select-all-months');
-        const idx2 = idx > -1 ? idx : texto.indexOf('month-checkbox');
-        resultado.push({ src: '(inline)', trecho: texto.slice(Math.max(0, idx2 - 500), idx2 + 1500) });
-      }
-    }
-    return resultado;
-  });
-  console.log('Trechos de JS encontrados com a lógica de seleção de meses:');
-  console.log(JSON.stringify(trechoJS, null, 2));
-
   console.log('Usando jQuery direto (mesma função do site) pra marcar só Janeiro/2026...');
   await page.evaluate(() => {
     window.$('.month-checkbox, .year-checkbox').prop('checked', false);
@@ -180,13 +158,65 @@ async function login() {
   const estadoFinal = await page.evaluate(() => ({
     meses: Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked })),
     anos: Array.from(document.querySelectorAll('.year-checkbox')).map(el => ({ id: el.id, checked: el.checked })),
-    textoBotaoMes: document.querySelector('#dropdownMonthButton')?.textContent.trim(),
-    textoBotaoAno: document.querySelector('#dropdownYearButton')?.textContent.trim(),
   }));
-  console.log('Estado final depois de usar jQuery direto:');
+  console.log('Estado final da seleção:');
   console.log(JSON.stringify(estadoFinal, null, 2));
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — ainda não gerei nenhum relatório.');
+  console.log('Clicando em "Gerar Relatório de Faturas"...');
+  const clicouGerar = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Gerar Relatório de Faturas'
+    );
+    if (els.length === 0) return false;
+    (els[0].closest('button') || els[0]).click();
+    return true;
+  });
+  if (!clicouGerar) {
+    console.error('FALHA: botão "Gerar Relatório de Faturas" não encontrado.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log('Aguardando o botão virar "Baixar Relatório de Faturas"...');
+  let virouBaixar = false;
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    virouBaixar = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('*')).some(el =>
+        el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
+      )
+    );
+    if (virouBaixar) break;
+    console.log(`  ainda gerando... (tentativa ${i + 1}/30)`);
+  }
+
+  if (!virouBaixar) {
+    console.error('FALHA: o botão não virou "Baixar Relatório de Faturas" a tempo.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log('Clicando em "Baixar Relatório de Faturas"...');
+  await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
+    );
+    (els[0].closest('button') || els[0]).click();
+  });
+
+  console.log('Aguardando download...');
+  await new Promise(r => setTimeout(r, 6000));
+
+  const arquivos = fs.readdirSync(downloadPath);
+  console.log('Arquivos na pasta de downloads:', arquivos);
+
+  if (arquivos.length === 0) {
+    console.error('FALHA: nenhum arquivo foi baixado.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  console.log('DOWNLOAD OK — arquivo(s) confirmado(s):', arquivos.join(', '));
   await browser.close();
 }
 
