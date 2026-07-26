@@ -194,7 +194,11 @@ export default function AssociacaoView() {
   function getCellValue(fatura, col) {
     // tenta no dados_completos primeiro, depois no campo direto
     if (fatura.dados_completos && fatura.dados_completos[col] !== undefined) {
-      return fatura.dados_completos[col]?.toString() || '';
+      const raw = fatura.dados_completos[col];
+      if (col.toLowerCase().includes('valor') && typeof raw === 'number') {
+        return raw.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+      return raw?.toString() || '';
     }
     return '';
   }
