@@ -139,31 +139,27 @@ async function login() {
   console.log('Opções do dropdown de Mês:');
   console.log(opcoesMes);
 
-  console.log('Desmarcando "Selecionar todos" dos meses (clicando na div ao redor, não no input)...');
-  await page.evaluate(() => {
-    document.querySelector('#select-all-months').closest('.form-check').click();
+  console.log('Buscando o código JS da página pra entender a lógica de "Selecionar todos"...');
+  const trechoJS = await page.evaluate(async () => {
+    const scripts = Array.from(document.querySelectorAll('script[src]')).map(s => s.src);
+    let resultado = [];
+    for (const src of scripts) {
+      try {
+        const res = await fetch(src);
+        const texto = await res.text();
+        if (texto.includes('select-all-months') || texto.includes('month-checkbox')) {
+          const idx = texto.indexOf('select-all-months');
+          const idx2 = idx > -1 ? idx : texto.indexOf('month-checkbox');
+          resultado.push({ src, trecho: texto.slice(Math.max(0, idx2 - 500), idx2 + 1000) });
+        }
+      } catch (e) { /* ignora scripts que falharem */ }
+    }
+    return resultado;
   });
-  await new Promise(r => setTimeout(r, 800));
+  console.log('Trechos de JS encontrados com a lógica de seleção de meses:');
+  console.log(JSON.stringify(trechoJS, null, 2));
 
-  const estadoAposDesmarcar = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked }));
-  });
-  console.log('Estado de cada mês logo após clicar em "Selecionar todos" (esperado: tudo false):');
-  console.log(JSON.stringify(estadoAposDesmarcar, null, 2));
-
-  console.log('Marcando só Janeiro (clicando na div ao redor de #month-1)...');
-  await page.evaluate(() => {
-    document.querySelector('#month-1').closest('.form-check').click();
-  });
-  await new Promise(r => setTimeout(r, 800));
-
-  const estadoMeses = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked }));
-  });
-  console.log('Estado de cada mês depois da seleção final:');
-  console.log(JSON.stringify(estadoMeses, null, 2));
-
-  console.log('DIAGNÓSTICO CONCLUÍDO — ainda não gerei nenhum relatório.');
+  console.log('DIAGNÓSTICO CONCLUÍDO — ainda não tentei clicar em nada relacionado a meses.');
   await browser.close();
 }
 
