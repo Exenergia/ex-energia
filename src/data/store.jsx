@@ -97,6 +97,16 @@ export function StoreProvider({ children }) {
   }
 
   // ── clientes ──
+  async function updateUnidade(id, patch) {
+    const { data } = await supabase.from('unidades_geradoras').update({
+      nome: patch.nome,
+      associacao_id: patch.associacaoId,
+      potencia_kwp: patch.potenciaKwp || null,
+      localizacao: patch.localizacao || null,
+    }).eq('id', id).select().single();
+    if (data) setUnidades(prev => prev.map(u => u.id === id ? data : u));
+  }
+
   async function addCliente(c) {
     const { data, error } = await supabase.from('clientes').insert({
       nome: c.nome,
@@ -170,7 +180,7 @@ export function StoreProvider({ children }) {
   }
 
   return (
-    <StoreContext.Provider value={{ state, addAssociacao, removeAssociacao, updateAssociacao, addUnidade, removeUnidade, addCliente, removeCliente, updateCliente, recarregarClientes, recarregarFaturas, addFatura }}>
+    <StoreContext.Provider value={{ state, addAssociacao, removeAssociacao, updateAssociacao, addUnidade, removeUnidade, updateUnidade, addCliente, removeCliente, updateCliente, recarregarClientes, recarregarFaturas, addFatura }}>
       {children}
     </StoreContext.Provider>
   );
