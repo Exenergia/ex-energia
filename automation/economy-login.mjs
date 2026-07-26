@@ -139,7 +139,21 @@ async function login() {
   console.log('Opções do dropdown de Mês:');
   console.log(opcoesMes);
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — nenhuma seleção foi feita ainda.');
+  console.log('Desmarcando "Selecionar todos" dos meses...');
+  await page.click('#select-all-months');
+  await new Promise(r => setTimeout(r, 800));
+
+  console.log('Marcando só Janeiro (#month-1)...');
+  await page.click('#month-1');
+  await new Promise(r => setTimeout(r, 800));
+
+  const estadoMeses = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked }));
+  });
+  console.log('Estado de cada mês depois da seleção:');
+  console.log(JSON.stringify(estadoMeses, null, 2));
+
+  console.log('DIAGNÓSTICO CONCLUÍDO — ainda não gerei nenhum relatório.');
   await browser.close();
 }
 
