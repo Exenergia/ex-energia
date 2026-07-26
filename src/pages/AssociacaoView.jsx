@@ -243,7 +243,7 @@ export default function AssociacaoView() {
       const raw = fatura.dados_completos[col];
       const colLower = col.toLowerCase();
       const ehValor = colLower.includes('valor');
-      const ehEnergia = colLower.includes('injetada') || colLower.includes('consumid') || colLower.includes('consumo');
+      const ehEnergia = colLower.includes('injetada') || colLower.includes('consumid') || colLower.includes('consumo') || colLower.includes('credito') || colLower.includes('saldo');
 
       if (ehValor || ehEnergia) {
         const num = parseSmartNumber(raw);
