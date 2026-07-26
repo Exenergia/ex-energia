@@ -115,6 +115,28 @@ export default function AssociacaoView() {
   const colunaConsumida = ehLugaOuFred ? colunas.find(c => c.toLowerCase().includes('consumid') || c.toLowerCase().includes('consumo')) : null;
   const totalConsumida = somarColuna(colunaConsumida);
 
+  function normalizar(s) {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+  function encontrarColuna(...termos) {
+    return colunas.find(c => {
+      const n = normalizar(c);
+      return termos.every(t => n.includes(normalizar(t)));
+    });
+  }
+
+  const colunaConsumoMes = encontrarColuna('consumo', 'mes');
+  const totalConsumoMes = somarColuna(colunaConsumoMes);
+
+  const colunaSaldoCredito = encontrarColuna('saldo', 'credito');
+  const totalSaldoCredito = somarColuna(colunaSaldoCredito);
+
+  const colunaCreditosUtilizados = encontrarColuna('credito', 'utilizado');
+  const totalCreditosUtilizados = somarColuna(colunaCreditosUtilizados);
+
+  const colunaCreditosRecebidos = encontrarColuna('credito', 'recebido');
+  const totalCreditosRecebidos = somarColuna(colunaCreditosRecebidos);
+
   // mapa clienteId → dados do cliente
   const mapaCliente = {};
   state.clientes.forEach(c => { mapaCliente[c.id] = c; });
@@ -274,6 +296,10 @@ export default function AssociacaoView() {
           {totalValor !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Total: {totalValor.toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}</span>}
           {totalInjetada !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Energia Injetada: {totalInjetada.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
           {totalConsumida !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Energia Consumida: {totalConsumida.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalConsumoMes !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Consumo Total do Mês: {totalConsumoMes.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalSaldoCredito !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Saldo de Crédito Solar: {totalSaldoCredito.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalCreditosUtilizados !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Créditos Utilizados: {totalCreditosUtilizados.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalCreditosRecebidos !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Créditos Recebidos: {totalCreditosRecebidos.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
         </div>
       </div>
 
