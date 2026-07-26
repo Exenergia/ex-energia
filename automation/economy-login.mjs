@@ -48,6 +48,46 @@ async function login() {
   }
 
   console.log('LOGIN OK — acesso confirmado.');
+
+  console.log('Abrindo o menu...');
+  // tenta achar "Relatórios" direto (pode já estar visível sem precisar abrir menu)
+  let achouRelatorios = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Relatórios'
+    );
+    return els.length > 0;
+  });
+
+  if (!achouRelatorios) {
+    // clica no botão de menu (geralmente primeiro botão/svg no topo) para abrir a barra lateral
+    await page.evaluate(() => {
+      const candidatos = Array.from(document.querySelectorAll('button, svg, [role="button"]'));
+      if (candidatos[0]) candidatos[0].click();
+    });
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
+  console.log('Procurando "Relatórios"...');
+  const clicouRelatorios = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Relatórios'
+    );
+    if (els.length === 0) return false;
+    (els[0].closest('a') || els[0].closest('button') || els[0]).click();
+    return true;
+  });
+
+  if (!clicouRelatorios) {
+    console.error('FALHA: não encontrei "Relatórios" na página.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  await new Promise(r => setTimeout(r, 3000));
+  console.log('Cliquei em "Relatórios".');
+  console.log('URL atual:', page.url());
+  console.log('Título da página:', await page.title());
+
   await browser.close();
 }
 
