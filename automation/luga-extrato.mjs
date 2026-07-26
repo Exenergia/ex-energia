@@ -160,6 +160,12 @@ async function gravarDados(caminhoArquivo) {
       else { erros++; continue; }
     }
 
+    // formata "Valor a Pagar" como moeda em reais (R$ 0,00)
+    const valorNum = Number(row['Valor a Pagar']);
+    if (!isNaN(valorNum)) {
+      row['Valor a Pagar'] = 'R$ ' + valorNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     await supabase.from('faturas').delete().eq('cliente_id', clienteId).eq('competencia', competencia);
     const { error } = await supabase.from('faturas').insert({
       cliente_id: clienteId,
