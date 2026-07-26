@@ -141,7 +141,32 @@ async function login() {
   console.log('Estrutura HTML ao redor de "Exportar relatório":');
   console.log(JSON.stringify(estruturaBotao, null, 2));
 
-  console.log('DIAGNÓSTICO CONCLUÍDO — nenhum clique em "Exportar relatório" foi feito ainda.');
+  console.log('Clicando em "Exportar relatório"...');
+  const cliquei = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Exportar relatório'
+    );
+    if (els.length === 0) return false;
+    const alvo = els[0].closest('button') || els[0];
+    alvo.click();
+    return true;
+  });
+  if (!cliquei) {
+    console.error('FALHA: botão "Exportar relatório" não encontrado.');
+    await browser.close();
+    process.exit(1);
+  }
+
+  await new Promise(r => setTimeout(r, 2000));
+
+  const modal = await page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    return dialog ? dialog.outerHTML.slice(0, 2000) : null;
+  });
+  console.log('Conteúdo do modal aberto:');
+  console.log(modal || 'Nenhum [role="dialog"] encontrado.');
+
+  console.log('DIAGNÓSTICO CONCLUÍDO — nenhum clique dentro do modal foi feito ainda.');
   await browser.close();
 }
 
