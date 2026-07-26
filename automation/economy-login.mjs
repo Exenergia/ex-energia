@@ -154,6 +154,15 @@ async function login() {
         }
       } catch (e) { /* ignora scripts que falharem */ }
     }
+    // também procura em <script> inline (sem src)
+    const inlineScripts = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent);
+    for (const texto of inlineScripts) {
+      if (texto.includes('select-all-months') || texto.includes('month-checkbox')) {
+        const idx = texto.indexOf('select-all-months');
+        const idx2 = idx > -1 ? idx : texto.indexOf('month-checkbox');
+        resultado.push({ src: '(inline)', trecho: texto.slice(Math.max(0, idx2 - 500), idx2 + 1500) });
+      }
+    }
     return resultado;
   });
   console.log('Trechos de JS encontrados com a lógica de seleção de meses:');
