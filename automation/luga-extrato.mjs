@@ -108,9 +108,9 @@ async function gravarDados(caminhoArquivo) {
   console.log('Unidade Luga (Aquiraz 3):', unidadeLuga.id);
   console.log('Unidade FRED (Aquiraz 4):', unidadeFred.id);
 
-  const wb = readFile(caminhoArquivo);
+  const wb = readFile(caminhoArquivo, { cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const raw = utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const raw = utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
 
   const headerRowIdx = raw.findIndex(r => r.includes('Competência'));
   if (headerRowIdx === -1) throw new Error('Não encontrei a linha de cabeçalho com "Competência" no arquivo.');
