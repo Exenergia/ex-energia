@@ -81,9 +81,11 @@ export default function AssociacaoView() {
   // faturas da competência selecionada
   const faturasFiltradas = faturas.filter(f => f.competencia === competencia);
 
-  const totalValor = colunas.includes('Valor a Pagar')
+  const COLUNAS_VALOR = ['Valor a Pagar', 'Total a Pagar Boleto Sunne'];
+  const colunaValor = COLUNAS_VALOR.find(c => colunas.includes(c));
+  const totalValor = colunaValor
     ? faturasFiltradas.reduce((acc, fatura) => {
-        const raw = (getCellValue(fatura, 'Valor a Pagar') || '').toString();
+        const raw = (getCellValue(fatura, colunaValor) || '').toString();
         const num = parseFloat(raw.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'));
         return acc + (isNaN(num) ? 0 : num);
       }, 0)
