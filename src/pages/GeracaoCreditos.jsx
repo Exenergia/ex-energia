@@ -2,37 +2,6 @@ import { useState, useMemo } from 'react';
 import { Printer, Zap, TrendingUp, Building2 } from 'lucide-react';
 import { useStore } from '../data/store.jsx';
 
-function normalizar(s) {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-function parseSmartNumber(rawVal) {
-  if (typeof rawVal === 'number') return rawVal;
-  if (!rawVal) return null;
-  let s = rawVal.toString().replace(/[^\d,.-]/g, '');
-  if (s === '') return null;
-  const lastComma = s.lastIndexOf(',');
-  const lastDot = s.lastIndexOf('.');
-  if (lastComma > -1 && lastDot > -1) {
-    if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.');
-    else s = s.replace(/,/g, '');
-  } else if (lastComma > -1) {
-    s = s.replace(',', '.');
-  }
-  const num = parseFloat(s);
-  return isNaN(num) ? null : num;
-}
-// acha, no dados_completos da fatura, a coluna de Consumo (nome varia por associação:
-// Sunne = "Consumo Total do Mês (kWh)", Luga/FRED = "Energia Consumida (kWh)", Economy = "Consumo (kWh)")
-function consumoFatura(f) {
-  const dados = f.dados_completos;
-  if (!dados) return 0;
-  const chave = Object.keys(dados).find(k => {
-    const n = normalizar(k);
-    return n.includes('consumid') || n.includes('consumo');
-  });
-  return chave ? (parseSmartNumber(dados[chave]) || 0) : 0;
-}
-
 export default function GeracaoCreditos() {
   const { state } = useStore();
   const [modo, setModo] = useState('mensal');
@@ -58,22 +27,17 @@ export default function GeracaoCreditos() {
     return state.faturas.filter(f => f.competencia === competencia);
   }, [state.faturas, competencia]);
 
-  const dadosPorUnidade = useMemo(() => {
+  const nFaturasPorUnidade = useMemo(() => {
     const m = {};
-    state.unidades.forEach(u => { m[u.id] = { nFaturas: 0, consumo: 0 }; });
+    state.unidades.forEach(u => { m[u.id] = 0; });
     faturasFiltradas.forEach(f => {
       const uid = mapaClienteUnidade[f.cliente_id];
-      if (uid !== undefined && m[uid] !== undefined) {
-        m[uid].nFaturas++;
-        m[uid].consumo += consumoFatura(f);
-      }
+      if (uid !== undefined && m[uid] !== undefined) m[uid]++;
     });
     return m;
   }, [state.unidades, faturasFiltradas, mapaClienteUnidade]);
 
   const totalFaturas = faturasFiltradas.length;
-  const totalConsumo = Object.values(dadosPorUnidade).reduce((acc, d) => acc + d.consumo, 0);
-  const fmtKwh = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div>
@@ -101,7 +65,7 @@ export default function GeracaoCreditos() {
 
       <div className="stat-grid stat-grid-3">
         {[
-          { label: 'CONSUMO TOTAL (KWH)', value: fmtKwh(totalConsumo), icon: Zap },
+          { label: 'CONSUMO TOTAL (KWH)', value: '0', icon: Zap },
           { label: 'ENERGIA GERADA TOTAL (KWH)', value: '0', icon: TrendingUp },
           { label: 'TOTAL FATURADO (R$)', value: 'R$ 0,00', icon: Building2 },
         ].map(({ label, value, icon: Icon }) => (
@@ -122,13 +86,11 @@ export default function GeracaoCreditos() {
                   <tr key={u.id}>
                     <td className="bold">{u.nome}</td>
                     <td>{state.associacoes.find(a => a.id === u.associacaoId)?.nome || '—'}</td>
-                    <td>{dadosPorUnidade[u.id]?.nFaturas ?? 0}</td>
-                    <td>{fmtKwh(dadosPorUnidade[u.id]?.consumo ?? 0)}</td>
-                    <td>0</td><td>R$ 0,00</td>
+                    <td>{nFaturasPorUnidade[u.id] ?? 0}</td><td>0</td><td>0</td><td>R$ 0,00</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>{fmtKwh(totalConsumo)}</td><td>0</td><td>R$ 0,00</td></tr></tfoot>
+              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>0</td><td>0</td><td>R$ 0,00</td></tr></tfoot>
             </table>
         }
       </div>
