@@ -44,16 +44,16 @@ function consumoFatura(f) {
   return chave ? (parseSmartNumber(dados[chave]) || 0) : 0;
 }
 
-// coluna de "Energia Gerada" (só existe na Economy) — repete o mesmo valor da usina em toda linha de
-// cliente daquela competência, então NÃO soma: pega só 1 ocorrência
-function geracaoFaturaUnica(f) {
+// coluna de "Energia Gerada" — nome varia por associação: Luga/FRED = "Energia Injetada",
+// Economy = "Energia Compensada", Sunne = "Créditos Recebidos"
+function geracaoFatura(f) {
   const dados = f.dados_completos;
-  if (!dados) return null;
+  if (!dados) return 0;
   const chave = Object.keys(dados).find(k => {
     const n = normalizar(k);
-    return n.includes('gerada') && !n.includes('estimada');
+    return n.includes('injetada') || n.includes('compensada') || (n.includes('credito') && n.includes('recebido'));
   });
-  return chave ? parseSmartNumber(dados[chave]) : null;
+  return chave ? (parseSmartNumber(dados[chave]) || 0) : 0;
 }
 
 export default function GeracaoCreditos() {
@@ -83,17 +83,14 @@ export default function GeracaoCreditos() {
 
   const dadosPorUnidade = useMemo(() => {
     const m = {};
-    state.unidades.forEach(u => { m[u.id] = { nFaturas: 0, faturado: 0, consumo: 0, geracao: null }; });
+    state.unidades.forEach(u => { m[u.id] = { nFaturas: 0, faturado: 0, consumo: 0, geracao: 0 }; });
     faturasFiltradas.forEach(f => {
       const uid = mapaClienteUnidade[f.cliente_id];
       if (uid !== undefined && m[uid] !== undefined) {
         m[uid].nFaturas++;
         m[uid].faturado += valorFatura(f);
         m[uid].consumo += consumoFatura(f);
-        if (m[uid].geracao === null) {
-          const g = geracaoFaturaUnica(f);
-          if (g !== null) m[uid].geracao = g;
-        }
+        m[uid].geracao += geracaoFatura(f);
       }
     });
     return m;
@@ -147,7 +144,7 @@ export default function GeracaoCreditos() {
         {state.unidades.length === 0
           ? <div className="empty-cell">Nenhuma unidade geradora cadastrada.</div>
           : <table>
-              <thead><tr><th>USINA</th><th>ASSOCIAÇÃO</th><th>Nº FATURAS</th><th>CONSUMO (KWH)</th><th>ENERGIA GERADA (KWH)</th><th>TOTAL FATURADO (R$)</th></tr></thead>
+              <thead><tr><th>USINA</th><th>ASSOCIAÇÃO</th><th>Nº FATURAS</th><th>CONSUMO (KWH)</th><th>ENERGIA GERADA (KWH) <span style={{ color: '#dc2626' }}>*</span></th><th>TOTAL FATURADO (R$)</th></tr></thead>
               <tbody>
                 {state.unidades.map(u => (
                   <tr key={u.id}>
@@ -163,6 +160,10 @@ export default function GeracaoCreditos() {
               <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>{fmtKwh(totalConsumo)}</td><td>{fmtKwh(totalGeracao)}</td><td>{fmtR$(totalFaturado)}</td></tr></tfoot>
             </table>
         }
+        <p style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>
+          * Os dados de Energia Gerada podem não refletir o valor real, pois dependem da estrutura das
+          tabelas de cada associação, e essas colunas ainda não estão totalmente padronizadas/características.
+        </p>
       </div>
     </div>
   );
