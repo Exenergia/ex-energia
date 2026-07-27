@@ -21,7 +21,7 @@ function parseSmartNumber(rawVal) {
   const num = parseFloat(s);
   return isNaN(num) ? null : num;
 }
-// mesma coluna de valor que já usamos como "Total" (verde) em cada aba de associação:
+// coluna de valor que já usamos como "Total" (verde) em cada aba de associação:
 // Sunne = "Valor com Plano", Luga/FRED = "Valor a Pagar", Economy = "Valor Assinatura"
 function valorFatura(f) {
   const dados = f.dados_completos;
@@ -29,6 +29,17 @@ function valorFatura(f) {
   const chave = Object.keys(dados).find(k => {
     const n = normalizar(k);
     return n === 'valor a pagar' || n === 'valor com plano' || n === 'valor assinatura';
+  });
+  return chave ? (parseSmartNumber(dados[chave]) || 0) : 0;
+}
+// coluna de Consumo (verde) de cada aba: Sunne = "Consumo Total do Mês", Luga/FRED = "Energia Consumida",
+// Economy = "Consumo"
+function consumoFatura(f) {
+  const dados = f.dados_completos;
+  if (!dados) return 0;
+  const chave = Object.keys(dados).find(k => {
+    const n = normalizar(k);
+    return n.includes('consumid') || n.includes('consumo');
   });
   return chave ? (parseSmartNumber(dados[chave]) || 0) : 0;
 }
@@ -60,12 +71,13 @@ export default function GeracaoCreditos() {
 
   const dadosPorUnidade = useMemo(() => {
     const m = {};
-    state.unidades.forEach(u => { m[u.id] = { nFaturas: 0, faturado: 0 }; });
+    state.unidades.forEach(u => { m[u.id] = { nFaturas: 0, faturado: 0, consumo: 0 }; });
     faturasFiltradas.forEach(f => {
       const uid = mapaClienteUnidade[f.cliente_id];
       if (uid !== undefined && m[uid] !== undefined) {
         m[uid].nFaturas++;
         m[uid].faturado += valorFatura(f);
+        m[uid].consumo += consumoFatura(f);
       }
     });
     return m;
@@ -73,7 +85,9 @@ export default function GeracaoCreditos() {
 
   const totalFaturas = faturasFiltradas.length;
   const totalFaturado = Object.values(dadosPorUnidade).reduce((acc, d) => acc + d.faturado, 0);
+  const totalConsumo = Object.values(dadosPorUnidade).reduce((acc, d) => acc + d.consumo, 0);
   const fmtR$ = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const fmtKwh = n => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div>
@@ -101,7 +115,7 @@ export default function GeracaoCreditos() {
 
       <div className="stat-grid stat-grid-3">
         {[
-          { label: 'CONSUMO TOTAL (KWH)', value: '0', icon: Zap },
+          { label: 'CONSUMO TOTAL (KWH)', value: fmtKwh(totalConsumo), icon: Zap },
           { label: 'ENERGIA GERADA TOTAL (KWH)', value: '0', icon: TrendingUp },
           { label: 'TOTAL FATURADO (R$)', value: fmtR$(totalFaturado), icon: Building2 },
         ].map(({ label, value, icon: Icon }) => (
@@ -123,12 +137,12 @@ export default function GeracaoCreditos() {
                     <td className="bold">{u.nome}</td>
                     <td>{state.associacoes.find(a => a.id === u.associacaoId)?.nome || '—'}</td>
                     <td>{dadosPorUnidade[u.id]?.nFaturas ?? 0}</td>
-                    <td>0</td><td>0</td>
+                    <td>{fmtKwh(dadosPorUnidade[u.id]?.consumo ?? 0)}</td><td>0</td>
                     <td>{fmtR$(dadosPorUnidade[u.id]?.faturado ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>0</td><td>0</td><td>{fmtR$(totalFaturado)}</td></tr></tfoot>
+              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>{fmtKwh(totalConsumo)}</td><td>0</td><td>{fmtR$(totalFaturado)}</td></tr></tfoot>
             </table>
         }
       </div>
