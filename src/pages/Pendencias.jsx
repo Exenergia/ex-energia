@@ -9,8 +9,12 @@ export default function Pendencias() {
   const [novoResolvido, setNovoResolvido] = useState(false);
   const [novoMarcado, setNovoMarcado] = useState(false);
 
+  const [erro, setErro] = useState(null);
+
   async function carregar() {
-    const { data } = await supabase.from('pendencias').select('*').order('created_at', { ascending: false });
+    setErro(null);
+    const { data, error } = await supabase.from('pendencias').select('*').order('created_at', { ascending: false });
+    if (error) setErro(`Erro ao carregar: ${error.message}`);
     setLinhas(data || []);
     setCarregando(false);
   }
@@ -19,13 +23,15 @@ export default function Pendencias() {
 
   async function adicionar() {
     if (!novoTexto.trim()) return;
+    setErro(null);
     const dataMarcacao = novoMarcado ? new Date().toISOString() : null;
-    const { data } = await supabase.from('pendencias').insert({
+    const { data, error } = await supabase.from('pendencias').insert({
       texto: novoTexto.trim(),
       resolvido: novoResolvido,
       marcado_exclusao: novoMarcado,
       data_marcacao_exclusao: dataMarcacao,
     }).select().single();
+    if (error) { setErro(`Erro ao salvar: ${error.message}`); return; }
     if (data) setLinhas(prev => [data, ...prev]);
     setNovoTexto('');
     setNovoResolvido(false);
@@ -78,6 +84,8 @@ export default function Pendencias() {
         <input type="checkbox" checked={novoMarcado} onChange={e => setNovoMarcado(e.target.checked)} title="Apagar em 15 dias" />
         <button className="btn-icon" onClick={adicionar}><Plus size={16} /></button>
       </div>
+
+      {erro && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{erro}</div>}
 
       <div className="panel-card table-wrap">
         {linhas.length === 0
