@@ -10,6 +10,112 @@ if (!USUARIO || !SENHA) {
   process.exit(1);
 }
 
+async function testarMes(page, downloadPath, mes) {
+  console.log(`\n=== Testando mês ${mes} ===`);
+
+  console.log(`Marcando só o mês ${mes}/2026...`);
+  await page.evaluate((m) => {
+    window.$('.month-checkbox, .year-checkbox').prop('checked', false);
+    window.$(`#month-${m}`).prop('checked', true);
+    window.$('#year-2026').prop('checked', true);
+    if (typeof updateAllSelectedCount === 'function') updateAllSelectedCount();
+  }, mes);
+  await new Promise(r => setTimeout(r, 500));
+
+  console.log('Clicando em "Filtrar"...');
+  const respostaFiltroPromise = page.waitForResponse(
+    res => res.url().includes('/relatorios_json') && res.request().method() === 'POST',
+    { timeout: 10000 }
+  ).catch(() => null);
+
+  await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Filtrar'
+    );
+    if (els.length > 0) (els[0].closest('button') || els[0]).click();
+  });
+
+  const respostaFiltro = await respostaFiltroPromise;
+  await new Promise(r => setTimeout(r, 1000));
+
+  if (!respostaFiltro) {
+    console.log('  Não detectei a resposta do filtro a tempo.');
+    return { sucesso: false, motivo: 'filtro não respondeu' };
+  }
+
+  let recordsTotal = null;
+  try {
+    const json = JSON.parse(await respostaFiltro.text());
+    recordsTotal = json.recordsTotal;
+  } catch (e) { /* ignora */ }
+
+  console.log(`  recordsTotal para o mês ${mes}: ${recordsTotal}`);
+  if (!recordsTotal || recordsTotal === 0) {
+    console.log(`  Mês ${mes} sem dados — pulando.`);
+    return { sucesso: false, motivo: 'sem dados nesse mês' };
+  }
+
+  console.log('  Tem dado! Clicando em "Gerar Relatório de Faturas"...');
+  const infoClique = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Gerar Relatório de Faturas'
+    );
+    if (els.length === 0) return { ok: false };
+    const btn = els[0].closest('button') || els[0];
+    if (!btn.id) btn.id = 'botao-gerar-faturas-debug';
+    btn.click();
+    return { ok: true, idUsado: btn.id };
+  });
+
+  if (!infoClique.ok) {
+    console.log('  Botão "Gerar Relatório de Faturas" não encontrado.');
+    return { sucesso: false, motivo: 'botão gerar não encontrado' };
+  }
+
+  console.log('  Aguardando o botão virar "Baixar Relatório de Faturas"...');
+  let virouBaixar = false;
+  for (let i = 0; i < 15; i++) {
+    await new Promise(r => setTimeout(r, 4000));
+    const check = await page.evaluate((id) => {
+      const btn = document.getElementById(id);
+      const achouBaixar = Array.from(document.querySelectorAll('*')).some(el =>
+        el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
+      );
+      const erros = Array.from(document.querySelectorAll('.toast, .alert, .swal2-popup, [role="alert"]'))
+        .map(e => e.textContent.trim()).filter(Boolean);
+      return { achouBaixar, erros };
+    }, infoClique.idUsado);
+    if (check.erros.length) console.log('  erro na tela:', JSON.stringify(check.erros));
+    virouBaixar = check.achouBaixar;
+    if (virouBaixar) break;
+  }
+
+  if (!virouBaixar) {
+    console.log(`  Mês ${mes}: geração falhou (não virou "Baixar").`);
+    return { sucesso: false, motivo: 'geração falhou' };
+  }
+
+  console.log('  Clicando em "Baixar Relatório de Faturas"...');
+  await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+      el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
+    );
+    (els[0].closest('button') || els[0]).click();
+  });
+
+  console.log('  Aguardando download...');
+  await new Promise(r => setTimeout(r, 6000));
+
+  const arquivos = fs.readdirSync(downloadPath);
+  if (arquivos.length === 0) {
+    console.log(`  Mês ${mes}: nenhum arquivo baixado.`);
+    return { sucesso: false, motivo: 'download não aconteceu' };
+  }
+
+  console.log(`  Mês ${mes}: DOWNLOAD OK — ${arquivos.join(', ')}`);
+  return { sucesso: true, arquivos };
+}
+
 async function login() {
   console.log('Iniciando navegador...');
   const browser = await puppeteer.launch({
@@ -42,31 +148,21 @@ async function login() {
     page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
     page.click('button[type="submit"]'),
   ]);
-
   await new Promise(r => setTimeout(r, 3000));
 
-  const url = page.url();
-  console.log('URL após login:', url);
-
-  if (url.includes('/login')) {
+  if (page.url().includes('/login')) {
     console.error('FALHA: ainda na página de login. Verifique credenciais.');
     await browser.close();
     process.exit(1);
   }
-
   console.log('LOGIN OK — acesso confirmado.');
 
-  console.log('Abrindo o menu...');
-  // tenta achar "Relatórios" direto (pode já estar visível sem precisar abrir menu)
-  let achouRelatorios = await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('*')).filter(el =>
+  let achouRelatorios = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('*')).some(el =>
       el.children.length === 0 && el.textContent.trim() === 'Relatórios'
-    );
-    return els.length > 0;
-  });
-
+    )
+  );
   if (!achouRelatorios) {
-    // clica no botão de menu (geralmente primeiro botão/svg no topo) para abrir a barra lateral
     await page.evaluate(() => {
       const candidatos = Array.from(document.querySelectorAll('button, svg, [role="button"]'));
       if (candidatos[0]) candidatos[0].click();
@@ -74,231 +170,34 @@ async function login() {
     await new Promise(r => setTimeout(r, 1500));
   }
 
-  console.log('Procurando "Relatórios"...');
-  const clicouRelatorios = await page.evaluate(() => {
+  console.log('Indo para "Relatórios"...');
+  await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
       el.children.length === 0 && el.textContent.trim() === 'Relatórios'
     );
-    if (els.length === 0) return false;
-    (els[0].closest('a') || els[0].closest('button') || els[0]).click();
-    return true;
+    if (els.length > 0) (els[0].closest('a') || els[0].closest('button') || els[0]).click();
   });
-
-  if (!clicouRelatorios) {
-    console.error('FALHA: não encontrei "Relatórios" na página.');
-    await browser.close();
-    process.exit(1);
-  }
-
   await new Promise(r => setTimeout(r, 3000));
-  console.log('Cliquei em "Relatórios".');
   console.log('URL atual:', page.url());
-  console.log('Título da página:', await page.title());
 
-  await new Promise(r => setTimeout(r, 2000));
-
-  console.log('Inspecionando estrutura ao redor do label "Ano"...');
-  const estrutura = await page.evaluate(() => {
-    const labels = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Ano'
-    );
-    if (labels.length === 0) return null;
-    let niveis = [];
-    let atual = labels[0];
-    for (let i = 0; i < 5 && atual; i++) {
-      niveis.push(atual.outerHTML.slice(0, 500));
-      atual = atual.parentElement;
+  let resultadoFinal = null;
+  for (const mes of [1, 2, 3, 4, 5, 6, 7]) {
+    const resultado = await testarMes(page, downloadPath, mes);
+    if (resultado.sucesso) {
+      resultadoFinal = { mes, ...resultado };
+      break;
     }
-    return niveis;
-  });
-  console.log('Estrutura HTML (do label "Ano" até 5 níveis acima):');
-  console.log(JSON.stringify(estrutura, null, 2));
-
-  console.log('Clicando em #dropdownYearButton...');
-  await page.click('#dropdownYearButton');
-  await new Promise(r => setTimeout(r, 1000));
-
-  const opcoesAno = await page.evaluate(() => {
-    const btn = document.querySelector('#dropdownYearButton');
-    const container = btn.closest('.dropdown');
-    const menu = container.querySelector('.dropdown-menu');
-    if (!menu) return 'Nenhum .dropdown-menu encontrado dentro do container.';
-    return menu.outerHTML.slice(0, 3000);
-  });
-  console.log('Opções do dropdown de Ano:');
-  console.log(opcoesAno);
-
-  console.log('Ano já vem selecionado por padrão (só existe 2026). Fechando dropdown de ano...');
-  await page.click('#dropdownYearButton');
-  await new Promise(r => setTimeout(r, 800));
-
-  console.log('Clicando em #dropdownMonthButton...');
-  await page.click('#dropdownMonthButton');
-  await new Promise(r => setTimeout(r, 1000));
-
-  const opcoesMes = await page.evaluate(() => {
-    const btn = document.querySelector('#dropdownMonthButton');
-    const container = btn.closest('.dropdown');
-    const menu = container.querySelector('.dropdown-menu');
-    if (!menu) return 'Nenhum .dropdown-menu encontrado dentro do container.';
-    return menu.outerHTML.slice(0, 3000);
-  });
-  console.log('Opções do dropdown de Mês:');
-  console.log(opcoesMes);
-
-  console.log('Usando jQuery direto (mesma função do site) pra marcar só Janeiro/2026...');
-  await page.evaluate(() => {
-    window.$('.month-checkbox, .year-checkbox').prop('checked', false);
-    window.$('#month-1').prop('checked', true);
-    window.$('#year-2026').prop('checked', true);
-    if (typeof updateAllSelectedCount === 'function') updateAllSelectedCount();
-  });
-  await new Promise(r => setTimeout(r, 500));
-
-  const estadoFinal = await page.evaluate(() => ({
-    meses: Array.from(document.querySelectorAll('.month-checkbox')).map(el => ({ id: el.id, checked: el.checked })),
-    anos: Array.from(document.querySelectorAll('.year-checkbox')).map(el => ({ id: el.id, checked: el.checked })),
-  }));
-  console.log('Estado final da seleção:');
-  console.log(JSON.stringify(estadoFinal, null, 2));
-
-  const payloadFormulario = await page.evaluate(() => {
-    try {
-      if (typeof retrieveDataFromForm === 'function') return retrieveDataFromForm();
-      return { erro: 'retrieveDataFromForm não é uma função global acessível' };
-    } catch (e) {
-      return { erro: e.message };
-    }
-  });
-  console.log('Payload que o formulário montaria (retrieveDataFromForm):');
-  console.log(JSON.stringify(payloadFormulario, null, 2));
-
-  const codigoFuncao = await page.evaluate(() => {
-    try {
-      if (typeof retrieveDataFromForm === 'function') return retrieveDataFromForm.toString();
-      return null;
-    } catch (e) { return null; }
-  });
-  console.log('Código-fonte de retrieveDataFromForm:');
-  console.log(codigoFuncao);
-
-
-  const respostasRede = [];
-  page.on('response', async (res) => {
-    const url = res.url();
-    if (url.includes('relatorio') || url.includes('bills') || url.includes('fatura')) {
-      let corpo = '';
-      try { corpo = (await res.text()).slice(0, 1500); } catch (e) {}
-      const req = res.request();
-      respostasRede.push({ url, status: res.status(), corpo, payloadEnviado: req.postData()?.slice(0, 1500) });
-    }
-  });
-
-  console.log('URL antes de clicar em Filtrar:', page.url());
-
-  console.log('Clicando em "Filtrar" antes de gerar o relatório...');
-  const respostaFiltroPromise = page.waitForResponse(
-    res => res.url().includes('/relatorios_json') && res.request().method() === 'POST',
-    { timeout: 10000 }
-  ).catch(() => null);
-
-  const clicouFiltrar = await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Filtrar'
-    );
-    if (els.length === 0) return false;
-    (els[0].closest('button') || els[0]).click();
-    return true;
-  });
-  console.log('Clicou em Filtrar:', clicouFiltrar);
-
-  const respostaFiltro = await respostaFiltroPromise;
-  const filtroAplicado = !!respostaFiltro;
-  await new Promise(r => setTimeout(r, 1500));
-
-  console.log('URL depois de clicar em Filtrar:', page.url());
-  console.log('Filtro aplicado (requisição /relatorios_json detectada):', filtroAplicado);
-
-  console.log('Clicando em "Gerar Relatório de Faturas"...');
-  const infoClique = await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Gerar Relatório de Faturas'
-    );
-    if (els.length === 0) return { ok: false };
-    const btn = els[0].closest('button') || els[0];
-    if (!btn.id) btn.id = 'botao-gerar-faturas-debug';
-    btn.click();
-    return { ok: true, htmlAntes: btn.outerHTML.slice(0, 400), idUsado: btn.id };
-  });
-  console.log('Resultado do clique:', JSON.stringify(infoClique));
-  if (!infoClique.ok) {
-    console.error('FALHA: botão "Gerar Relatório de Faturas" não encontrado.');
-    await browser.close();
-    process.exit(1);
   }
 
-  await new Promise(r => setTimeout(r, 1500));
-  const estadoLogoApos = await page.evaluate((id) => {
-    const btn = document.getElementById(id);
-    const toasts = Array.from(document.querySelectorAll('.toast, .alert, .swal2-popup')).map(t => t.textContent.trim());
-    return { htmlDepois: btn ? btn.outerHTML.slice(0, 400) : '(botão sumiu)', toasts };
-  }, infoClique.idUsado);
-  console.log('Estado do botão 1.5s após o clique:', JSON.stringify(estadoLogoApos, null, 2));
-
-  console.log('Aguardando o botão virar "Baixar Relatório de Faturas"...');
-  let virouBaixar = false;
-  for (let i = 0; i < 15; i++) {
-    await new Promise(r => setTimeout(r, 4000));
-    const check = await page.evaluate((id) => {
-      const btn = document.getElementById(id);
-      const achouBaixar = Array.from(document.querySelectorAll('*')).some(el =>
-        el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
-      );
-      const erros = Array.from(document.querySelectorAll('.toast, .alert, .swal2-popup, [role="alert"], .invalid-feedback'))
-        .map(e => e.textContent.trim()).filter(Boolean);
-      return {
-        achouBaixar,
-        textoBotao: btn ? btn.textContent.trim() : '(sumiu)',
-        dataStatus: btn ? btn.getAttribute('data-status') : null,
-        disabled: btn ? btn.disabled : null,
-        erros,
-      };
-    }, infoClique.idUsado);
-    virouBaixar = check.achouBaixar;
-    if (virouBaixar) break;
-    console.log(`  tentativa ${i + 1}/15:`, JSON.stringify(check));
+  console.log('\n=== RESULTADO FINAL ===');
+  if (resultadoFinal) {
+    console.log(`SUCESSO no mês ${resultadoFinal.mes}:`, JSON.stringify(resultadoFinal.arquivos));
+  } else {
+    console.log('Nenhum mês de Jan a Jul funcionou.');
   }
 
-  if (!virouBaixar) {
-    console.error('FALHA: o botão não virou "Baixar Relatório de Faturas" a tempo.');
-    console.log('Respostas de rede capturadas relacionadas a relatório/faturas:');
-    console.log(JSON.stringify(respostasRede, null, 2));
-    await browser.close();
-    process.exit(1);
-  }
-
-  console.log('Clicando em "Baixar Relatório de Faturas"...');
-  await page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('*')).filter(el =>
-      el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
-    );
-    (els[0].closest('button') || els[0]).click();
-  });
-
-  console.log('Aguardando download...');
-  await new Promise(r => setTimeout(r, 6000));
-
-  const arquivos = fs.readdirSync(downloadPath);
-  console.log('Arquivos na pasta de downloads:', arquivos);
-
-  if (arquivos.length === 0) {
-    console.error('FALHA: nenhum arquivo foi baixado.');
-    await browser.close();
-    process.exit(1);
-  }
-
-  console.log('DOWNLOAD OK — arquivo(s) confirmado(s):', arquivos.join(', '));
   await browser.close();
+  if (!resultadoFinal) process.exit(1);
 }
 
 login().catch(err => {
