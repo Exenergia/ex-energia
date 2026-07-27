@@ -1,0 +1,24 @@
+name: Limpar Pendências Antigas
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Todo dia às 3h da manhã em Fortaleza (UTC-3) = 6h UTC
+    - cron: '0 6 * * *'
+
+jobs:
+  limpar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Apagar pendências marcadas há mais de 15 dias
+        run: node automation/limpar-pendencias.mjs

@@ -7,6 +7,7 @@ import Associacoes from './pages/Associacoes.jsx';
 import UnidadesGeradoras from './pages/UnidadesGeradoras.jsx';
 import AssociacaoView from './pages/AssociacaoView.jsx';
 import GeracaoCreditos from './pages/GeracaoCreditos.jsx';
+import Pendencias from './pages/Pendencias.jsx';
 import Conflitos from './pages/Conflitos.jsx';
 
 function Shell() {
@@ -33,6 +34,7 @@ function Shell() {
           <Route path="/unidades" element={<UnidadesGeradoras />} />
           <Route path="/associacao/:id" element={<AssociacaoView />} />
           <Route path="/geracao" element={<GeracaoCreditos />} />
+          <Route path="/pendencias" element={<Pendencias />} />
           <Route path="/conflitos" element={<Conflitos />} />
         </Routes>
       </main>

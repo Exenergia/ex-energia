@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutGrid, Building2, Zap, Users, TrendingUp, AlertTriangle, LogOut } from 'lucide-react';
+import { LayoutGrid, Building2, Zap, Users, TrendingUp, AlertTriangle, ClipboardList, LogOut } from 'lucide-react';
 import { useStore } from '../data/store.jsx';
 
 function Item({ to, icon: Icon, label, count }) {
@@ -32,6 +32,7 @@ export default function Sidebar() {
 
         <div className="sb-divider" />
         <Item to="/geracao" icon={TrendingUp} label="Geração & Créditos" />
+        <Item to="/pendencias" icon={ClipboardList} label="Pendências" />
         <Item to="/conflitos" icon={AlertTriangle} label="Conflitos" count={state.conflitos.length} />
       </nav>
 
