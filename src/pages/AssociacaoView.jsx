@@ -103,7 +103,7 @@ export default function AssociacaoView() {
     return faturasFiltradas.reduce((acc, fatura) => acc + (parseSmartNumber(getCellValue(fatura, col)) || 0), 0);
   }
 
-  const COLUNAS_VALOR = ['Valor a Pagar', 'Valor com Plano'];
+  const COLUNAS_VALOR = ['Valor a Pagar', 'Valor com Plano', 'Valor Assinatura'];
   const colunaValor = colunas.find(c => COLUNAS_VALOR.some(alvo => alvo.toLowerCase() === c.toLowerCase()));
   const totalValor = somarColuna(colunaValor);
 
@@ -114,6 +114,15 @@ export default function AssociacaoView() {
 
   const colunaConsumida = ehLugaOuFred ? colunas.find(c => c.toLowerCase().includes('consumid') || c.toLowerCase().includes('consumo')) : null;
   const totalConsumida = somarColuna(colunaConsumida);
+
+  const ehEconomy = colunas.some(c => c.toLowerCase() === 'valor assinatura');
+
+  const colunaConsumoKwh = ehEconomy ? colunas.find(c => c.toLowerCase() === 'consumo (kwh)') : null;
+  const totalConsumoKwh = somarColuna(colunaConsumoKwh);
+
+  const colunaEnergiaCompensada = ehEconomy ? colunas.find(c => c.toLowerCase() === 'energia compensada (kwh)') : null;
+  const totalEnergiaCompensada = somarColuna(colunaEnergiaCompensada);
+
 
   function normalizar(s) {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -300,6 +309,8 @@ export default function AssociacaoView() {
           {totalSaldoCredito !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Saldo de Crédito Solar: {totalSaldoCredito.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
           {totalCreditosUtilizados !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Créditos Utilizados: {totalCreditosUtilizados.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
           {totalCreditosRecebidos !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Créditos Recebidos: {totalCreditosRecebidos.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalConsumoKwh !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Consumo: {totalConsumoKwh.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
+          {totalEnergiaCompensada !== null && <span style={{ fontSize:13, fontWeight:600, color:'#166534' }}>· Energia Compensada: {totalEnergiaCompensada.toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 })} kWh</span>}
         </div>
       </div>
 
