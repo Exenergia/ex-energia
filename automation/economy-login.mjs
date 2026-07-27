@@ -197,11 +197,19 @@ async function login() {
       const achouBaixar = Array.from(document.querySelectorAll('*')).some(el =>
         el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
       );
-      return { achouBaixar, htmlAtual: btn ? btn.outerHTML.slice(0, 300) : '(sumiu)' };
+      const erros = Array.from(document.querySelectorAll('.toast, .alert, .swal2-popup, [role="alert"], .invalid-feedback'))
+        .map(e => e.textContent.trim()).filter(Boolean);
+      return {
+        achouBaixar,
+        textoBotao: btn ? btn.textContent.trim() : '(sumiu)',
+        dataStatus: btn ? btn.getAttribute('data-status') : null,
+        disabled: btn ? btn.disabled : null,
+        erros,
+      };
     }, infoClique.idUsado);
     virouBaixar = check.achouBaixar;
     if (virouBaixar) break;
-    console.log(`  tentativa ${i + 1}/15 — html atual do botão: ${check.htmlAtual}`);
+    console.log(`  tentativa ${i + 1}/15:`, JSON.stringify(check));
   }
 
   if (!virouBaixar) {
