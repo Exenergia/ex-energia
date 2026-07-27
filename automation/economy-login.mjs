@@ -96,6 +96,7 @@ async function testarMes(page, downloadPath, mes) {
   }
 
   console.log('  Clicando em "Baixar Relatório de Faturas"...');
+  const antesDownload = new Set(fs.readdirSync(downloadPath));
   await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
       el.children.length === 0 && el.textContent.trim() === 'Baixar Relatório de Faturas'
@@ -106,14 +107,22 @@ async function testarMes(page, downloadPath, mes) {
   console.log('  Aguardando download...');
   await new Promise(r => setTimeout(r, 6000));
 
-  const arquivos = fs.readdirSync(downloadPath);
-  if (arquivos.length === 0) {
+  const depoisDownload = fs.readdirSync(downloadPath);
+  const novos = depoisDownload.filter(f => !antesDownload.has(f));
+  if (novos.length === 0) {
     console.log(`  Mês ${mes}: nenhum arquivo baixado.`);
     return { sucesso: false, motivo: 'download não aconteceu' };
   }
 
-  console.log(`  Mês ${mes}: DOWNLOAD OK — ${arquivos.join(', ')}`);
-  return { sucesso: true, arquivos };
+  // renomeia com o mês pra não sobrescrever entre meses (o site sempre baixa o mesmo nome)
+  const renomeados = novos.map(f => {
+    const novoNome = `mes-${String(mes).padStart(2, '0')}-2026-${f}`;
+    fs.renameSync(path.join(downloadPath, f), path.join(downloadPath, novoNome));
+    return novoNome;
+  });
+
+  console.log(`  Mês ${mes}: DOWNLOAD OK — ${renomeados.join(', ')}`);
+  return { sucesso: true, arquivos: renomeados };
 }
 
 async function login() {
@@ -180,24 +189,19 @@ async function login() {
   await new Promise(r => setTimeout(r, 3000));
   console.log('URL atual:', page.url());
 
-  let resultadoFinal = null;
+  const resultados = {};
   for (const mes of [1, 2, 3, 4, 5, 6, 7]) {
-    const resultado = await testarMes(page, downloadPath, mes);
-    if (resultado.sucesso) {
-      resultadoFinal = { mes, ...resultado };
-      break;
-    }
+    resultados[mes] = await testarMes(page, downloadPath, mes);
   }
 
-  console.log('\n=== RESULTADO FINAL ===');
-  if (resultadoFinal) {
-    console.log(`SUCESSO no mês ${resultadoFinal.mes}:`, JSON.stringify(resultadoFinal.arquivos));
-  } else {
-    console.log('Nenhum mês de Jan a Jul funcionou.');
+  console.log('\n=== RESUMO FINAL ===');
+  for (const mes of [1, 2, 3, 4, 5, 6, 7]) {
+    const r = resultados[mes];
+    if (r.sucesso) console.log(`Mês ${mes}: OK — ${r.arquivos.join(', ')}`);
+    else console.log(`Mês ${mes}: sem arquivo (${r.motivo})`);
   }
 
   await browser.close();
-  if (!resultadoFinal) process.exit(1);
 }
 
 login().catch(err => {
