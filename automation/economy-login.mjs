@@ -173,6 +173,16 @@ async function login() {
   console.log('Payload que o formulário montaria (retrieveDataFromForm):');
   console.log(JSON.stringify(payloadFormulario, null, 2));
 
+  const codigoFuncao = await page.evaluate(() => {
+    try {
+      if (typeof retrieveDataFromForm === 'function') return retrieveDataFromForm.toString();
+      return null;
+    } catch (e) { return null; }
+  });
+  console.log('Código-fonte de retrieveDataFromForm:');
+  console.log(codigoFuncao);
+
+
   const respostasRede = [];
   page.on('response', async (res) => {
     const url = res.url();
