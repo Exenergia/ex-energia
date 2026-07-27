@@ -2,6 +2,37 @@ import { useState, useMemo } from 'react';
 import { Printer, Zap, TrendingUp, Building2 } from 'lucide-react';
 import { useStore } from '../data/store.jsx';
 
+function normalizar(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+function parseSmartNumber(rawVal) {
+  if (typeof rawVal === 'number') return rawVal;
+  if (!rawVal) return null;
+  let s = rawVal.toString().replace(/[^\d,.-]/g, '');
+  if (s === '') return null;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if (lastComma > -1 && lastDot > -1) {
+    if (lastComma > lastDot) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(/,/g, '');
+  } else if (lastComma > -1) {
+    s = s.replace(',', '.');
+  }
+  const num = parseFloat(s);
+  return isNaN(num) ? null : num;
+}
+// mesma coluna de valor que já usamos como "Total" (verde) em cada aba de associação:
+// Sunne = "Valor com Plano", Luga/FRED = "Valor a Pagar", Economy = "Valor Assinatura"
+function valorFatura(f) {
+  const dados = f.dados_completos;
+  if (!dados) return 0;
+  const chave = Object.keys(dados).find(k => {
+    const n = normalizar(k);
+    return n === 'valor a pagar' || n === 'valor com plano' || n === 'valor assinatura';
+  });
+  return chave ? (parseSmartNumber(dados[chave]) || 0) : 0;
+}
+
 export default function GeracaoCreditos() {
   const { state } = useStore();
   const [modo, setModo] = useState('mensal');
@@ -27,17 +58,22 @@ export default function GeracaoCreditos() {
     return state.faturas.filter(f => f.competencia === competencia);
   }, [state.faturas, competencia]);
 
-  const nFaturasPorUnidade = useMemo(() => {
+  const dadosPorUnidade = useMemo(() => {
     const m = {};
-    state.unidades.forEach(u => { m[u.id] = 0; });
+    state.unidades.forEach(u => { m[u.id] = { nFaturas: 0, faturado: 0 }; });
     faturasFiltradas.forEach(f => {
       const uid = mapaClienteUnidade[f.cliente_id];
-      if (uid !== undefined && m[uid] !== undefined) m[uid]++;
+      if (uid !== undefined && m[uid] !== undefined) {
+        m[uid].nFaturas++;
+        m[uid].faturado += valorFatura(f);
+      }
     });
     return m;
   }, [state.unidades, faturasFiltradas, mapaClienteUnidade]);
 
   const totalFaturas = faturasFiltradas.length;
+  const totalFaturado = Object.values(dadosPorUnidade).reduce((acc, d) => acc + d.faturado, 0);
+  const fmtR$ = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div>
@@ -67,7 +103,7 @@ export default function GeracaoCreditos() {
         {[
           { label: 'CONSUMO TOTAL (KWH)', value: '0', icon: Zap },
           { label: 'ENERGIA GERADA TOTAL (KWH)', value: '0', icon: TrendingUp },
-          { label: 'TOTAL FATURADO (R$)', value: 'R$ 0,00', icon: Building2 },
+          { label: 'TOTAL FATURADO (R$)', value: fmtR$(totalFaturado), icon: Building2 },
         ].map(({ label, value, icon: Icon }) => (
           <div className="stat-card" key={label}>
             <div className="stat-card-head"><span>{label}</span><Icon size={15} /></div>
@@ -86,11 +122,13 @@ export default function GeracaoCreditos() {
                   <tr key={u.id}>
                     <td className="bold">{u.nome}</td>
                     <td>{state.associacoes.find(a => a.id === u.associacaoId)?.nome || '—'}</td>
-                    <td>{nFaturasPorUnidade[u.id] ?? 0}</td><td>0</td><td>0</td><td>R$ 0,00</td>
+                    <td>{dadosPorUnidade[u.id]?.nFaturas ?? 0}</td>
+                    <td>0</td><td>0</td>
+                    <td>{fmtR$(dadosPorUnidade[u.id]?.faturado ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>0</td><td>0</td><td>R$ 0,00</td></tr></tfoot>
+              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>0</td><td>0</td><td>{fmtR$(totalFaturado)}</td></tr></tfoot>
             </table>
         }
       </div>
