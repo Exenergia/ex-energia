@@ -162,6 +162,16 @@ async function login() {
   console.log('Estado final da seleção:');
   console.log(JSON.stringify(estadoFinal, null, 2));
 
+  const respostasRede = [];
+  page.on('response', async (res) => {
+    const url = res.url();
+    if (url.includes('relatorio') || url.includes('bills') || url.includes('fatura')) {
+      let corpo = '';
+      try { corpo = (await res.text()).slice(0, 1500); } catch (e) {}
+      respostasRede.push({ url, status: res.status(), corpo });
+    }
+  });
+
   console.log('Clicando em "Gerar Relatório de Faturas"...');
   const infoClique = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
@@ -214,6 +224,8 @@ async function login() {
 
   if (!virouBaixar) {
     console.error('FALHA: o botão não virou "Baixar Relatório de Faturas" a tempo.');
+    console.log('Respostas de rede capturadas relacionadas a relatório/faturas:');
+    console.log(JSON.stringify(respostasRede, null, 2));
     await browser.close();
     process.exit(1);
   }
