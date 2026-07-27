@@ -1,10 +1,43 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Printer, Zap, TrendingUp, Building2 } from 'lucide-react';
 import { useStore } from '../data/store.jsx';
 
 export default function GeracaoCreditos() {
   const { state } = useStore();
   const [modo, setModo] = useState('mensal');
+  const [competencia, setCompetencia] = useState('todas');
+
+  // competências realmente existentes nas faturas, mais recente primeiro
+  const competencias = useMemo(() => {
+    const set = new Set(state.faturas.map(f => f.competencia).filter(Boolean));
+    return Array.from(set).sort((a, b) => {
+      const [ma, aa] = a.split('/'); const [mb, ab] = b.split('/');
+      return (ab + mb).localeCompare(aa + ma);
+    });
+  }, [state.faturas]);
+
+  const mapaClienteUnidade = useMemo(() => {
+    const m = {};
+    state.clientes.forEach(c => { m[c.id] = c.unidadeId; });
+    return m;
+  }, [state.clientes]);
+
+  const faturasFiltradas = useMemo(() => {
+    if (competencia === 'todas') return state.faturas;
+    return state.faturas.filter(f => f.competencia === competencia);
+  }, [state.faturas, competencia]);
+
+  const nFaturasPorUnidade = useMemo(() => {
+    const m = {};
+    state.unidades.forEach(u => { m[u.id] = 0; });
+    faturasFiltradas.forEach(f => {
+      const uid = mapaClienteUnidade[f.cliente_id];
+      if (uid !== undefined && m[uid] !== undefined) m[uid]++;
+    });
+    return m;
+  }, [state.unidades, faturasFiltradas, mapaClienteUnidade]);
+
+  const totalFaturas = faturasFiltradas.length;
 
   return (
     <div>
@@ -24,7 +57,10 @@ export default function GeracaoCreditos() {
 
       <div className="toolbar">
         <select className="sel"><option>Todas as unidades geradoras</option></select>
-        <select className="sel"><option>Competência atual</option></select>
+        <select className="sel" value={competencia} onChange={e => setCompetencia(e.target.value)}>
+          <option value="todas">Todas as competências</option>
+          {competencias.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       <div className="stat-grid stat-grid-3">
@@ -50,11 +86,11 @@ export default function GeracaoCreditos() {
                   <tr key={u.id}>
                     <td className="bold">{u.nome}</td>
                     <td>{state.associacoes.find(a => a.id === u.associacaoId)?.nome || '—'}</td>
-                    <td>0</td><td>0</td><td>0</td><td>R$ 0,00</td>
+                    <td>{nFaturasPorUnidade[u.id] ?? 0}</td><td>0</td><td>0</td><td>R$ 0,00</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr><td><strong>Total</strong></td><td></td><td>0</td><td>0</td><td>0</td><td>R$ 0,00</td></tr></tfoot>
+              <tfoot><tr><td><strong>Total</strong></td><td></td><td>{totalFaturas}</td><td>0</td><td>0</td><td>R$ 0,00</td></tr></tfoot>
             </table>
         }
       </div>
