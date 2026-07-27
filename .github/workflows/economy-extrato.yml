@@ -2,6 +2,9 @@ name: Economy Energy - Extrato de Faturas
 
 on:
   workflow_dispatch:
+  schedule:
+    # 6h da manhã em Fortaleza (UTC-3) = 9h UTC, nos dias 1, 15 e 29 de cada mês
+    - cron: '0 9 1,15,29 * *'
 
 jobs:
   extrato:
