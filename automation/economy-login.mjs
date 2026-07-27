@@ -194,7 +194,14 @@ async function login() {
     }
   });
 
+  console.log('URL antes de clicar em Filtrar:', page.url());
+
   console.log('Clicando em "Filtrar" antes de gerar o relatório...');
+  const respostaFiltroPromise = page.waitForResponse(
+    res => res.url().includes('/relatorios_json') && res.request().method() === 'POST',
+    { timeout: 10000 }
+  ).catch(() => null);
+
   const clicouFiltrar = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
       el.children.length === 0 && el.textContent.trim() === 'Filtrar'
@@ -204,7 +211,13 @@ async function login() {
     return true;
   });
   console.log('Clicou em Filtrar:', clicouFiltrar);
-  await new Promise(r => setTimeout(r, 3000));
+
+  const respostaFiltro = await respostaFiltroPromise;
+  const filtroAplicado = !!respostaFiltro;
+  await new Promise(r => setTimeout(r, 1500));
+
+  console.log('URL depois de clicar em Filtrar:', page.url());
+  console.log('Filtro aplicado (requisição /relatorios_json detectada):', filtroAplicado);
 
   console.log('Clicando em "Gerar Relatório de Faturas"...');
   const infoClique = await page.evaluate(() => {
