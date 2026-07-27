@@ -6,6 +6,8 @@ export default function Pendencias() {
   const [linhas, setLinhas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [novoTexto, setNovoTexto] = useState('');
+  const [novoResolvido, setNovoResolvido] = useState(false);
+  const [novoMarcado, setNovoMarcado] = useState(false);
 
   async function carregar() {
     const { data } = await supabase.from('pendencias').select('*').order('created_at', { ascending: false });
@@ -17,9 +19,17 @@ export default function Pendencias() {
 
   async function adicionar() {
     if (!novoTexto.trim()) return;
-    const { data } = await supabase.from('pendencias').insert({ texto: novoTexto.trim() }).select().single();
+    const dataMarcacao = novoMarcado ? new Date().toISOString() : null;
+    const { data } = await supabase.from('pendencias').insert({
+      texto: novoTexto.trim(),
+      resolvido: novoResolvido,
+      marcado_exclusao: novoMarcado,
+      data_marcacao_exclusao: dataMarcacao,
+    }).select().single();
     if (data) setLinhas(prev => [data, ...prev]);
     setNovoTexto('');
+    setNovoResolvido(false);
+    setNovoMarcado(false);
   }
 
   async function atualizarTexto(id, texto) {
@@ -55,7 +65,8 @@ export default function Pendencias() {
         </div>
       </div>
 
-      <div className="panel-card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 8 }}>
+      <div className="panel-card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={novoResolvido} onChange={e => setNovoResolvido(e.target.checked)} title="Feito" />
         <input
           className="sel"
           style={{ flex: 1 }}
@@ -64,6 +75,7 @@ export default function Pendencias() {
           onChange={e => setNovoTexto(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && adicionar()}
         />
+        <input type="checkbox" checked={novoMarcado} onChange={e => setNovoMarcado(e.target.checked)} title="Apagar em 15 dias" />
         <button className="btn-icon" onClick={adicionar}><Plus size={16} /></button>
       </div>
 
