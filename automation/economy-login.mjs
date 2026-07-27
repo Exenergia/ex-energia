@@ -194,6 +194,23 @@ async function login() {
     }
   });
 
+  console.log('Testando requisição direta só com csrfmiddlewaretoken + month (sem os campos de data vazios)...');
+  const testeDireto = await page.evaluate(async () => {
+    const token = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    const params = new URLSearchParams();
+    params.append('csrfmiddlewaretoken', token);
+    params.append('month', '1');
+    const res = await fetch('/relatorios/planilha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': token },
+      body: params.toString(),
+    });
+    const corpo = await res.text();
+    return { status: res.status, corpo: corpo.slice(0, 1500) };
+  });
+  console.log('Resultado da requisição direta (só month):');
+  console.log(JSON.stringify(testeDireto, null, 2));
+
   console.log('Clicando em "Gerar Relatório de Faturas"...');
   const infoClique = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('*')).filter(el =>
