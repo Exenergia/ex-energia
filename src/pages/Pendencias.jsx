@@ -95,6 +95,11 @@ export default function Pendencias() {
                     </td>
                     <td>
                       <input type="checkbox" checked={!!l.marcado_exclusao} onChange={e => toggleMarcadoExclusao(l.id, e.target.checked)} />
+                      {l.marcado_exclusao && l.data_marcacao_exclusao && (
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                          marcado em {new Date(l.data_marcacao_exclusao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <button className="btn-icon" onClick={() => apagarAgora(l.id)}><Trash2 size={14} /></button>
