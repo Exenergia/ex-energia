@@ -1,0 +1,35 @@
+name: Economy Energy - Extrato de Faturas
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extrato:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Instalar Chromium
+        run: npx puppeteer browsers install chrome
+
+      - name: Baixar e gravar faturas da Economy Energy
+        env:
+          ECONOMY_EMAIL: ${{ secrets.ECONOMY_EMAIL }}
+          ECONOMY_PASSWORD: ${{ secrets.ECONOMY_PASSWORD }}
+        run: node automation/economy-extrato.mjs
+
+      - name: Upload downloads
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: economy-downloads
+          path: downloads/
