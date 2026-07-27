@@ -162,13 +162,25 @@ async function login() {
   console.log('Estado final da seleção:');
   console.log(JSON.stringify(estadoFinal, null, 2));
 
+  const payloadFormulario = await page.evaluate(() => {
+    try {
+      if (typeof retrieveDataFromForm === 'function') return retrieveDataFromForm();
+      return { erro: 'retrieveDataFromForm não é uma função global acessível' };
+    } catch (e) {
+      return { erro: e.message };
+    }
+  });
+  console.log('Payload que o formulário montaria (retrieveDataFromForm):');
+  console.log(JSON.stringify(payloadFormulario, null, 2));
+
   const respostasRede = [];
   page.on('response', async (res) => {
     const url = res.url();
     if (url.includes('relatorio') || url.includes('bills') || url.includes('fatura')) {
       let corpo = '';
       try { corpo = (await res.text()).slice(0, 1500); } catch (e) {}
-      respostasRede.push({ url, status: res.status(), corpo });
+      const req = res.request();
+      respostasRede.push({ url, status: res.status(), corpo, payloadEnviado: req.postData()?.slice(0, 1500) });
     }
   });
 
